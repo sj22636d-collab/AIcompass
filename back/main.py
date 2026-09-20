@@ -1,7 +1,10 @@
+import os
+import json
+import sqlite3
+import uuid
+from datetime import datetime
 from fastapi import FastAPI
 from pydantic import BaseModel
-from datetime import datetime
-import json
 from openai import OpenAI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,33 +12,72 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # 開発用。本番時はフロントエンドのURLに制限します
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# === データベースの初期設定 ===
+def init_db():
+    conn = sqlite3.connect("tasks.db")
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS tasks (
+            id TEXT PRIMARY KEY,
+            title TEXT,
+            deadline TEXT,
+            estimated_minutes INTEGER,
+            category TEXT,
+            status TEXT,
+            actual_minutes INTEGER
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def get_db_connection():
+    conn = sqlite3.connect("tasks.db")
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# === OpenAI設定 ===
 def load_api_key(filepath="api_key.txt"):
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             return f.read().strip()
     except FileNotFoundError:
-        print("api_key.txtが見つかりません。")
         return ""
 
 client = OpenAI(api_key=load_api_key())
 
-class TaskRequest(BaseModel):
+# === リクエストスキーマ ===
+class TaskExtractRequest(BaseModel):
     user_input: str
+
+class TaskSaveRequest(BaseModel):
+    title: str
+    deadline: str
+    estimated_minutes: int
+    category: str
 
 class ConditionRequest(BaseModel):
     condition_text: str
 
-# 疑似データベース（本来はSQLite等を使用します）
-DUMMY_DB = []
+class ParseCompletionRequest(BaseModel):
+    report_text: str
 
+class CompleteTaskRequest(BaseModel):
+    task_id: str
+    actual_minutes: int
+
+# ==========================================
+# API 1: タスク情報の推測 (保存はまだしない)
+# ==========================================
 @app.post("/api/extract_task")
-def extract_task_api(request: TaskRequest):
+def extract_task_api(request: TaskExtractRequest):
     now_str = datetime.now().isoformat()
     prompt = f"""
     あなたは優秀なタスク管理アシスタントです。
@@ -52,33 +94,61 @@ def extract_task_api(request: TaskRequest):
         messages=[{"role": "system", "content": prompt}],
         temperature=0.2,
     )
-    result = json.loads(response.choices[0].message.content)
-    
-    # 疑似DBへ保存（ハッカソン用の簡易処理）
-    import uuid
-    result["id"] = str(uuid.uuid4())
-    DUMMY_DB.append(result)
-    
-    return result
+    return json.loads(response.choices[0].message.content)
 
+# ==========================================
+# API 2: タスクをデータベースに保存
+# ==========================================
+@app.post("/api/save_task")
+def save_task_api(request: TaskSaveRequest):
+    task_id = str(uuid.uuid4())
+    conn = get_db_connection()
+    conn.execute(
+        "INSERT INTO tasks (id, title, deadline, estimated_minutes, category, status) VALUES (?, ?, ?, ?, ?, ?)",
+        (task_id, request.title, request.deadline, request.estimated_minutes, request.category, "未着手")
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "success", "task_id": task_id}
+
+# ==========================================
+# API 3: 全タスクの取得 (all_tasks.html用)
+# ==========================================
+@app.get("/api/get_tasks")
+def get_tasks_api():
+    conn = get_db_connection()
+    tasks = conn.execute("SELECT * FROM tasks").fetchall()
+    conn.close()
+    return [dict(task) for task in tasks]
+
+# ==========================================
+# API 4: 今日のスケジュール生成
+# ==========================================
 @app.post("/api/generate_schedule")
 def generate_schedule_api(request: ConditionRequest):
-    # 疑似DBにタスクがない場合はダミーを入れる（テスト用）
-    tasks = DUMMY_DB if len(DUMMY_DB) > 0 else [
-        {"id": "T01", "title": "A社への提案書作成", "deadline": "2026-09-25", "estimatedMinutes": 120, "category": "思考系"},
-        {"id": "T02", "title": "経費精算の入力", "deadline": "2026-09-30", "estimatedMinutes": 30, "category": "作業系"}
-    ]
-    tasks_json = json.dumps(tasks, ensure_ascii=False)
+    conn = get_db_connection()
+    rows = conn.execute("SELECT * FROM tasks WHERE status = '未着手'").fetchall()
+    conn.close()
+    
+    uncompleted_tasks = [dict(row) for row in rows]
+    tasks_json = json.dumps(uncompleted_tasks, ensure_ascii=False)
     now_str = datetime.now().isoformat()
+
+    # パーソナライズプロファイルの読み込み
+    user_profile = ""
+    if os.path.exists("user_profile.txt"):
+        with open("user_profile.txt", "r", encoding="utf-8") as f:
+            user_profile = f.read().strip()
 
     prompt = f"""
     あなたはユーザーのコンディションに寄り添うタスク管理アシスタントです。
     【現在日時】{now_str}
+    【ユーザーの特性（過去の傾向）】{user_profile} 
     【未完了タスク】{tasks_json}
     【ユーザーの状態】{request.condition_text}
     
-    ユーザーの状態に合わせ、今日実行すべきタスクを選定し、順番を組んでJSONで出力してください。
-    出力形式: {{"assessed_condition": {{"available_minutes": 数値, "energy_level": "high/medium/low"}}, "schedule": [{{"task_id": "ID", "title": "タスク名", "reason": "理由"}}], "ai_message": "励ましの言葉"}}
+    上記の「ユーザーの特性」と「ユーザーの状態」の両方を考慮し、今日実行すべきタスクを選定し、順番を組んでJSONで出力してください。
+    出力形式: {{"assessed_condition": {{"available_minutes": 数値, "energy_level": "high/medium/low"}}, "schedule": [{{"task_id": "ID", "title": "タスク名", "reason": "特性や状態を踏まえた理由"}}], "ai_message": "励ましの言葉"}}
     """
 
     response = client.chat.completions.create(
@@ -88,3 +158,84 @@ def generate_schedule_api(request: ConditionRequest):
         temperature=0.4,
     )
     return json.loads(response.choices[0].message.content)
+
+# ==========================================
+# API 5: 完了報告の解析（どのタスクが何分で終わったか推測）
+# ==========================================
+@app.post("/api/parse_completion")
+def parse_completion_api(request: ParseCompletionRequest):
+    conn = get_db_connection()
+    rows = conn.execute("SELECT id, title FROM tasks WHERE status = '未着手'").fetchall()
+    conn.close()
+    
+    uncompleted_tasks = [dict(row) for row in rows]
+    tasks_json = json.dumps(uncompleted_tasks, ensure_ascii=False)
+
+    prompt = f"""
+    ユーザーの完了報告テキストと、未着手タスク一覧を照らし合わせ、どのタスクが完了したかを特定してください。
+    【未着手タスク】{tasks_json}
+    【報告テキスト】{request.report_text}
+    
+    出力形式: {{"task_id": "特定したID(不明ならnull)", "task_title": "タスク名", "actual_minutes": かかった時間(分・数値のみ抽出)}}
+    """
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        response_format={"type": "json_object"},
+        messages=[{"role": "system", "content": prompt}],
+        temperature=0.1,
+    )
+    return json.loads(response.choices[0].message.content)
+
+# ==========================================
+# API 6: タスクを「完了」としてDBに記録
+# ==========================================
+@app.post("/api/complete_task")
+def complete_task_api(request: CompleteTaskRequest):
+    conn = get_db_connection()
+    conn.execute(
+        "UPDATE tasks SET status = '完了', actual_minutes = ? WHERE id = ?",
+        (request.actual_minutes, request.task_id)
+    )
+    conn.commit()
+    conn.close()
+    return {"status": "success"}
+
+# ==========================================
+# API 7: 週次バッチ処理（パーソナライズ分析とデータ削除）
+# ==========================================
+@app.post("/api/run_weekly_batch")
+def run_weekly_batch_api():
+    conn = get_db_connection()
+    completed_tasks = conn.execute("SELECT title, category, estimated_minutes, actual_minutes FROM tasks WHERE status = '完了'").fetchall()
+    
+    if not completed_tasks:
+        conn.close()
+        return {"status": "no_data", "message": "分析する完了タスクがありません。"}
+        
+    tasks_data = [dict(row) for row in completed_tasks]
+    tasks_json = json.dumps(tasks_data, ensure_ascii=False)
+    
+    prompt = f"""
+    以下のデータは、ユーザーが直近で完了したタスクの見積時間と実績時間です。
+    【完了タスクデータ】
+    {tasks_json}
+    
+    このデータから、ユーザーのタスク処理における傾向を分析し、今後のスケジュール作成AIに渡すための「ユーザー特性プロファイル」を3行以内のテキストで作成してください。
+    """
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+    )
+    profile_text = response.choices[0].message.content
+    
+    with open("user_profile.txt", "w", encoding="utf-8") as f:
+        f.write(profile_text)
+        
+    conn.execute("DELETE FROM tasks WHERE status = '完了'")
+    conn.commit()
+    conn.close()
+    
+    return {"status": "success", "profile": profile_text}

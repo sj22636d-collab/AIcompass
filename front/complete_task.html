@@ -21,7 +21,7 @@
 
         <div id="confirm-section" class="result-box hidden">
             <h2>以下のタスクを完了にしますか？</h2>
-            <p><strong>推測された対象タスク:</strong> <span id="res-task-name"></span></p>
+            <p><strong>特定されたタスク:</strong> <span id="res-task-name"></span></p>
             
             <label>実際にかかった時間 (分) ※修正可能</label>
             <input type="number" id="actual-time">
@@ -31,6 +31,8 @@
     </div>
 
     <script>
+        let currentTaskId = null;
+
         document.getElementById('btn-report').addEventListener('click', async () => {
             const text = document.getElementById('report-input').value;
             if (!text) return alert('入力してください');
@@ -38,24 +40,47 @@
             document.getElementById('loading').classList.remove('hidden');
             
             try {
-                // ※バックエンドにこの解析用API（/api/parse_completionなど）を追加する必要があります
-                // 今回はフロント側でのモック（仮の動き）を実装します
-                setTimeout(() => {
-                    document.getElementById('res-task-name').textContent = "A社への提案書作成 (仮)";
-                    document.getElementById('actual-time').value = 180; // AIが3時間＝180分と抽出した想定
-                    
-                    document.getElementById('input-section').classList.add('hidden');
-                    document.getElementById('confirm-section').classList.remove('hidden');
+                const res = await fetch("http://127.0.0.1:8000/api/parse_completion", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ report_text: text })
+                });
+                const data = await res.json();
+                
+                if (!data.task_id) {
+                    alert("該当する未着手タスクが見つかりませんでした。");
                     document.getElementById('loading').classList.add('hidden');
-                }, 1000);
+                    return;
+                }
+                
+                currentTaskId = data.task_id;
+                document.getElementById('res-task-name').textContent = data.task_title;
+                document.getElementById('actual-time').value = data.actual_minutes || 0;
+                
+                document.getElementById('input-section').classList.add('hidden');
+                document.getElementById('confirm-section').classList.remove('hidden');
             } catch (e) {
                 alert("エラーが発生しました。");
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
             }
         });
 
-        document.getElementById('btn-complete').addEventListener('click', () => {
-            alert("完了時間を記録し、パーソナライズデータに反映しました！");
-            location.href = 'index.html';
+        document.getElementById('btn-complete').addEventListener('click', async () => {
+            const actualMinutes = parseInt(document.getElementById('actual-time').value) || 0;
+            try {
+                const res = await fetch("http://127.0.0.1:8000/api/complete_task", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ task_id: currentTaskId, actual_minutes: actualMinutes })
+                });
+                if (res.ok) {
+                    alert("完了時間を記録し、ステータスを更新しました！");
+                    location.href = 'index.html';
+                }
+            } catch (e) {
+                alert("記録中にエラーが発生しました。");
+            }
         });
     </script>
 </body>

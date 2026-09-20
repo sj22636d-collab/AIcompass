@@ -14,7 +14,6 @@ body {
     padding: 0;
 }
 
-/* 共通ヘッダー */
 header {
     background-color: var(--box-bg);
     padding: 15px 20px;
@@ -38,7 +37,6 @@ header h1 {
     font-weight: bold;
 }
 
-/* メインコンテナ */
 .container {
     max-width: 600px;
     margin: 0 auto;
@@ -94,7 +92,6 @@ input[type="number"], input[type="text"] {
 .ai-reason { background: #f0f7ff; padding: 15px; border-radius: 8px; font-size: 0.9rem; color: #0056b3; margin-bottom: 20px; }
 #loading { text-align: center; color: var(--secondary-color); font-weight: bold; margin: 20px 0; }
 
-/* テーブル（全タスク表示用） */
 table { width: 100%; border-collapse: collapse; margin-top: 15px; }
 th, td { border: 1px solid #eee; padding: 10px; text-align: left; font-size: 0.9rem; }
 th { background-color: #f9f9f9; }
