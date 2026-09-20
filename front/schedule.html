@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>今日のプラン</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <a href="index.html" class="home-link">◀ 戻る</a>
+        <h1>今日のプラン作成</h1>
+    </header>
+    <div class="container">
+        <div id="input-section">
+            <h2>今の状態を教えてください</h2>
+            <textarea id="condition-input" placeholder="例: 午後から2時間だけ。疲れてる。"></textarea>
+            <button id="btn-generate" class="secondary-btn">今日のプランを作成</button>
+        </div>
+
+        <div id="loading" class="hidden">AIがスケジュールを構築中...</div>
+
+        <div id="result-section" class="result-box hidden">
+            <p class="ai-reason" id="ai-message"></p>
+            <ul id="schedule-list" style="list-style:none; padding:0;"></ul>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('btn-generate').addEventListener('click', async () => {
+            const text = document.getElementById('condition-input').value;
+            if (!text) return alert('入力してください');
+            
+            document.getElementById('loading').classList.remove('hidden');
+            
+            try {
+                const res = await fetch("http://127.0.0.1:8000/api/generate_schedule", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ condition_text: text })
+                });
+                const data = await res.json();
+                
+                document.getElementById('ai-message').textContent = data.ai_message;
+                
+                const list = document.getElementById('schedule-list');
+                list.innerHTML = '';
+                data.schedule.forEach(task => {
+                    list.innerHTML += `<li style="background:#f9f9f9; margin-bottom:10px; padding:15px; border-left:4px solid #2196F3;">
+                        <strong>${task.title || task.task_id}</strong><br>
+                        <span style="font-size:0.8rem; color:#666;">💡 ${task.reason}</span>
+                    </li>`;
+                });
+                
+                document.getElementById('input-section').classList.add('hidden');
+                document.getElementById('result-section').classList.remove('hidden');
+            } catch (e) {
+                alert("エラーが発生しました。");
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

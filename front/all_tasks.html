@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>全タスク一覧</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <a href="index.html" class="home-link">◀ 戻る</a>
+        <h1>全タスク一覧</h1>
+    </header>
+    <div class="container">
+        <table>
+            <thead>
+                <tr>
+                    <th>タスク名</th>
+                    <th>期限</th>
+                    <th>見積(分)</th>
+                    <th>性質</th>
+                    <th>状態</th>
+                </tr>
+            </thead>
+            <tbody id="task-table-body">
+                <!-- JavaScriptでここにデータを挿入します -->
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // ※本来はバックエンドから全タスクを取得するAPI(/api/get_tasks)を叩いて描画します
+        const dummyTasks = [
+            { title: "A社への提案書作成", deadline: "2026-09-25", time: 120, category: "思考系", status: "未着手" },
+            { title: "経費精算の入力", deadline: "2026-09-30", time: 30, category: "作業系", status: "未着手" }
+        ];
+
+        const tbody = document.getElementById('task-table-body');
+        dummyTasks.forEach(t => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${t.title}</td>
+                    <td>${t.deadline}</td>
+                    <td>${t.time}</td>
+                    <td>${t.category}</td>
+                    <td>${t.status}</td>
+                </tr>
+            `;
+        });
+    </script>
+</body>
+</html>
