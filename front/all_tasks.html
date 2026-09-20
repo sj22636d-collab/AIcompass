@@ -11,40 +11,71 @@
         <h1>全タスク一覧</h1>
     </header>
     <div class="container">
+        <button id="btn-run-batch" class="action-btn" style="background-color: #9c27b0; margin-bottom: 20px;">
+            🧠 AIに過去のタスクを分析させて削除する (週次バッチ)
+        </button>
+
         <table>
             <thead>
                 <tr>
                     <th>タスク名</th>
                     <th>期限</th>
-                    <th>見積(分)</th>
+                    <th>時間(分)</th>
                     <th>性質</th>
                     <th>状態</th>
                 </tr>
             </thead>
-            <tbody id="task-table-body">
-                <!-- JavaScriptでここにデータを挿入します -->
-            </tbody>
+            <tbody id="task-table-body"></tbody>
         </table>
     </div>
 
     <script>
-        // ※本来はバックエンドから全タスクを取得するAPI(/api/get_tasks)を叩いて描画します
-        const dummyTasks = [
-            { title: "A社への提案書作成", deadline: "2026-09-25", time: 120, category: "思考系", status: "未着手" },
-            { title: "経費精算の入力", deadline: "2026-09-30", time: 30, category: "作業系", status: "未着手" }
-        ];
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await fetch("http://127.0.0.1:8000/api/get_tasks");
+                const tasks = await res.json();
+                
+                const tbody = document.getElementById('task-table-body');
+                tbody.innerHTML = '';
+                
+                tasks.forEach(t => {
+                    const isCompleted = t.status === '完了';
+                    const rowStyle = isCompleted ? 'style="color: #888; text-decoration: line-through; background-color: #f0f0f0;"' : '';
+                    const timeDisplay = isCompleted && t.actual_minutes 
+                        ? `${t.estimated_minutes} (実績: ${t.actual_minutes})` 
+                        : `${t.estimated_minutes}`;
 
-        const tbody = document.getElementById('task-table-body');
-        dummyTasks.forEach(t => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${t.title}</td>
-                    <td>${t.deadline}</td>
-                    <td>${t.time}</td>
-                    <td>${t.category}</td>
-                    <td>${t.status}</td>
-                </tr>
-            `;
+                    tbody.innerHTML += `
+                        <tr ${rowStyle}>
+                            <td>${t.title}</td>
+                            <td>${t.deadline || '-'}</td>
+                            <td>${timeDisplay}</td>
+                            <td>${t.category}</td>
+                            <td>${t.status}</td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {
+                alert("タスクの取得に失敗しました。");
+            }
+        });
+
+        document.getElementById('btn-run-batch').addEventListener('click', async () => {
+            if (!confirm("完了済みタスクをAIに分析させ、データベースから削除します。よろしいですか？")) return;
+            
+            try {
+                const res = await fetch("http://127.0.0.1:8000/api/run_weekly_batch", { method: "POST" });
+                const data = await res.json();
+                
+                if (data.status === "success") {
+                    alert("分析完了！\n生成されたプロファイル:\n" + data.profile);
+                    location.reload(); 
+                } else {
+                    alert(data.message);
+                }
+            } catch (e) {
+                alert("バッチ処理に失敗しました。");
+            }
         });
     </script>
 </body>
