@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>完了報告</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <a href="index.html" class="home-link">◀ 戻る</a>
+        <h1>完了報告</h1>
+    </header>
+    <div class="container">
+        <div id="input-section">
+            <h2>何を終わらせましたか？</h2>
+            <textarea id="report-input" placeholder="例: A社の提案書作成、3時間かかった！"></textarea>
+            <button id="btn-report" class="danger-btn">AIに報告する</button>
+        </div>
+
+        <div id="loading" class="hidden">AIがタスクを照合中...</div>
+
+        <div id="confirm-section" class="result-box hidden">
+            <h2>以下のタスクを完了にしますか？</h2>
+            <p><strong>推測された対象タスク:</strong> <span id="res-task-name"></span></p>
+            
+            <label>実際にかかった時間 (分) ※修正可能</label>
+            <input type="number" id="actual-time">
+
+            <button id="btn-complete" class="primary-btn">完了として記録する</button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('btn-report').addEventListener('click', async () => {
+            const text = document.getElementById('report-input').value;
+            if (!text) return alert('入力してください');
+            
+            document.getElementById('loading').classList.remove('hidden');
+            
+            try {
+                // ※バックエンドにこの解析用API（/api/parse_completionなど）を追加する必要があります
+                // 今回はフロント側でのモック（仮の動き）を実装します
+                setTimeout(() => {
+                    document.getElementById('res-task-name').textContent = "A社への提案書作成 (仮)";
+                    document.getElementById('actual-time').value = 180; // AIが3時間＝180分と抽出した想定
+                    
+                    document.getElementById('input-section').classList.add('hidden');
+                    document.getElementById('confirm-section').classList.remove('hidden');
+                    document.getElementById('loading').classList.add('hidden');
+                }, 1000);
+            } catch (e) {
+                alert("エラーが発生しました。");
+            }
+        });
+
+        document.getElementById('btn-complete').addEventListener('click', () => {
+            alert("完了時間を記録し、パーソナライズデータに反映しました！");
+            location.href = 'index.html';
+        });
+    </script>
+</body>
+</html>
