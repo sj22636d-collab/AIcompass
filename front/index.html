@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Task Assistant</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>AI Task Assistant</h1>
+        
+        <!-- メインメニュー -->
+        <div id="main-menu" class="view-section active">
+            <button id="btn-show-add-task" class="primary-btn">✏️ タスクを入力する</button>
+            <button id="btn-show-schedule" class="secondary-btn">🚀 今からやるタスクを出す</button>
+        </div>
+
+        <!-- ルートB: タスク入力画面 -->
+        <div id="add-task-view" class="view-section hidden">
+            <h2>どんなタスクですか？</h2>
+            <textarea id="task-input-text" placeholder="例: 来週火曜までに研究の進捗出して資料作る"></textarea>
+            <button id="btn-submit-task" class="action-btn">AIに分析させる</button>
+            
+            <div id="task-result" class="result-box hidden">
+                <h3>分析結果（登録完了）</h3>
+                <p><strong>タスク名:</strong> <span id="res-title"></span></p>
+                <p><strong>期限:</strong> <span id="res-deadline"></span></p>
+                <p><strong>見積もり時間:</strong> <span id="res-time"></span>分</p>
+                <p><strong>性質:</strong> <span id="res-category"></span></p>
+                <p class="ai-reason" id="res-reason"></p>
+                <button class="back-btn" onclick="goHome()">🏠 ホームに戻る</button>
+            </div>
+        </div>
+
+        <!-- ルートA: スケジュール生成画面 -->
+        <div id="schedule-view" class="view-section hidden">
+            <h2>今の状態を教えてください</h2>
+            <textarea id="condition-input-text" placeholder="例: 今日は午後から2時間だけ。少し疲れてるから重いのは嫌だ"></textarea>
+            <button id="btn-submit-condition" class="action-btn">今日のプランを作成</button>
+            
+            <div id="schedule-result" class="result-box hidden">
+                <div class="ai-message-box">
+                    <p id="res-ai-message"></p>
+                </div>
+                <h3>今日やるべきタスク</h3>
+                <ul id="schedule-list" class="task-list"></ul>
+                <button class="back-btn" onclick="goHome()">🏠 ホームに戻る</button>
+            </div>
+        </div>
+        
+        <!-- ローディング表示 -->
+        <div id="loading" class="hidden">
+            <p>AIが考え中...</p>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
