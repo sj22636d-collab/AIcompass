@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from openai import OpenAI
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
+
 
 app = FastAPI()
 
@@ -59,9 +61,9 @@ class TaskExtractRequest(BaseModel):
 
 class TaskSaveRequest(BaseModel):
     title: str
-    deadline: str
-    estimated_minutes: int
-    category: str
+    deadline: Optional[str] = ""
+    estimated_minutes: Optional[int] = 0
+    category: Optional[str] = ""
 
 class ConditionRequest(BaseModel):
     condition_text: str

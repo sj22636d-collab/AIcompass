@@ -70,10 +70,32 @@
             }
         });
 
-        document.getElementById('btn-save').addEventListener('click', () => {
-            // ※本来はここで登録用API(/api/save_taskなど)を叩きます
-            alert("登録しました！");
-            location.href = 'index.html';
+        document.getElementById('btn-save').addEventListener('click', async () => {
+            const payload = {
+                title: document.getElementById('edit-title').value,
+                deadline: document.getElementById('edit-deadline').value || "",
+                estimated_minutes: parseInt(document.getElementById('edit-time').value) || 0,
+                category: document.getElementById('edit-category').value || ""
+            };
+
+            try {
+                const res = await fetch("http://127.0.0.1:8000/api/save_task", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (res.ok) {
+                    alert("データベースに登録しました！");
+                    location.href = 'index.html';
+                } else {
+                    // エラーの内容をポップアップで表示
+                    const errData = await res.json();
+                    alert("保存に失敗しました: " + JSON.stringify(errData.detail));
+                }
+            } catch (e) {
+                alert("通信エラーが発生しました: " + e.message);
+            }
         });
     </script>
 </body>
