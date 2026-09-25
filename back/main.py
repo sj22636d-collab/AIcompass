@@ -1,14 +1,14 @@
 import os
+import re
 import json
 import sqlite3
 import uuid
 from datetime import datetime
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+from typing import Optional
 from openai import OpenAI
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Optional
-
 
 app = FastAPI()
 
@@ -45,15 +45,26 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# === OpenAI設定 ===
+# === Groq API設定 (OpenAI互換機能を使用) ===
 def load_api_key(filepath="api_key.txt"):
     try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            return f.read().strip()
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            key = f.read().strip()
+            # ASCII英数字とハイフン・アンダースコアのみ抽出
+            clean_key = re.sub(r'[^a-zA-Z0-9\-_]', '', key)
+            return clean_key
     except FileNotFoundError:
+        print(f"【エラー】{filepath} が見つかりません。")
         return ""
 
-client = OpenAI(api_key=load_api_key())
+# base_url を Groq のエンドポイントに指定
+client = OpenAI(
+    api_key=load_api_key(),
+    base_url="https://api.groq.com/openai/v1"
+)
+
+# 使用するGroqモデルの定義
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 # === リクエストスキーマ ===
 class TaskExtractRequest(BaseModel):
@@ -76,7 +87,7 @@ class CompleteTaskRequest(BaseModel):
     actual_minutes: int
 
 # ==========================================
-# API 1: タスク情報の推測 (保存はまだしない)
+# API 1: タスク情報の推測
 # ==========================================
 @app.post("/api/extract_task")
 def extract_task_api(request: TaskExtractRequest):
@@ -91,7 +102,7 @@ def extract_task_api(request: TaskExtractRequest):
     """
     
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=GROQ_MODEL,
         response_format={"type": "json_object"},
         messages=[{"role": "system", "content": prompt}],
         temperature=0.2,
@@ -114,7 +125,7 @@ def save_task_api(request: TaskSaveRequest):
     return {"status": "success", "task_id": task_id}
 
 # ==========================================
-# API 3: 全タスクの取得 (all_tasks.html用)
+# API 3: 全タスクの取得
 # ==========================================
 @app.get("/api/get_tasks")
 def get_tasks_api():
@@ -136,7 +147,6 @@ def generate_schedule_api(request: ConditionRequest):
     tasks_json = json.dumps(uncompleted_tasks, ensure_ascii=False)
     now_str = datetime.now().isoformat()
 
-    # パーソナライズプロファイルの読み込み
     user_profile = ""
     if os.path.exists("user_profile.txt"):
         with open("user_profile.txt", "r", encoding="utf-8") as f:
@@ -154,7 +164,7 @@ def generate_schedule_api(request: ConditionRequest):
     """
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=GROQ_MODEL,
         response_format={"type": "json_object"},
         messages=[{"role": "system", "content": prompt}],
         temperature=0.4,
@@ -162,7 +172,7 @@ def generate_schedule_api(request: ConditionRequest):
     return json.loads(response.choices[0].message.content)
 
 # ==========================================
-# API 5: 完了報告の解析（どのタスクが何分で終わったか推測）
+# API 5: 完了報告の解析
 # ==========================================
 @app.post("/api/parse_completion")
 def parse_completion_api(request: ParseCompletionRequest):
@@ -182,7 +192,7 @@ def parse_completion_api(request: ParseCompletionRequest):
     """
     
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=GROQ_MODEL,
         response_format={"type": "json_object"},
         messages=[{"role": "system", "content": prompt}],
         temperature=0.1,
@@ -204,7 +214,7 @@ def complete_task_api(request: CompleteTaskRequest):
     return {"status": "success"}
 
 # ==========================================
-# API 7: 週次バッチ処理（パーソナライズ分析とデータ削除）
+# API 7: 週次バッチ処理
 # ==========================================
 @app.post("/api/run_weekly_batch")
 def run_weekly_batch_api():
@@ -227,7 +237,7 @@ def run_weekly_batch_api():
     """
     
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=GROQ_MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
     )
