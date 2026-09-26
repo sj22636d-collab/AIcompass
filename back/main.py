@@ -33,7 +33,9 @@ app.add_middleware(
 # 【変更】データベース接続設定 (Neon / PostgreSQL)
 # ==========================================
 # ↓ 先ほどNeonでコピーした Connection string に書き換えてください！ ↓
-NEON_DATABASE_URL = "postgresql://neondb_owner:npg_bqKI0TRa2kFd@ep-billowing-wildflower-b3x8mxx3-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+# 1. データベースURLの読み込みを変更
+# Render上では "DATABASE_URL" を使い、見つからない場合のみ直接書いたURLを使う
+NEON_DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_bqKI0TRa2kFd@ep-billowing-wildflower-b3x8mxx3-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
 
 def get_db_connection():
     # 結果を辞書型(dict)で受け取れるように RealDictCursor を使用
@@ -113,15 +115,18 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         raise HTTPException(status_code=401, detail="ログインの有効期限が切れています")
     return {"id": row["id"], "username": row["username"], "profile": row["profile"] or ""}
 
-# === Groq API設定 ===
+# 2. APIキーの読み込み関数を変更
 def load_api_key(filepath="api_key.txt"):
+    # Render上では環境変数から読み込む
+    if "GROQ_API_KEY" in os.environ:
+        return os.environ["GROQ_API_KEY"]
+        
+    # ローカル環境ではファイルから読み込む
     try:
         with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
             key = f.read().strip()
-            clean_key = re.sub(r'[^a-zA-Z0-9\-_]', '', key)
-            return clean_key
+            return re.sub(r'[^a-zA-Z0-9\-_]', '', key)
     except FileNotFoundError:
-        print(f"【エラー】{filepath} が見つかりません。")
         return ""
 
 client = OpenAI(
