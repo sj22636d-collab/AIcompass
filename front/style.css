@@ -31,6 +31,9 @@ header h1 {
     text-align: center;
 }
 
+/* 【変更】ホーム・ログイン画面の見出しをロゴ画像にした */
+.header-logo { display: block; height: 36px; width: auto; margin: 0 auto; }
+
 /* 【変更】戻るリンクがあってもタイトルが中央に来るよう、右側に同じ幅の余白を取る */
 header:has(.home-link)::after {
     content: "";
@@ -161,6 +164,7 @@ th { background-color: #f9f9f9; }
         z-index: 10;
     }
     header h1 { font-size: 1.05rem; }
+    .header-logo { height: 30px; }
 
     .container {
         margin: 0 12px 24px;
