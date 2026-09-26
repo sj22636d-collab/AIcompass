@@ -116,7 +116,7 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
     return {"id": row["id"], "username": row["username"], "profile": row["profile"] or ""}
 
 # 2. APIキーの読み込み関数を変更
-def load_api_key(filepath="api_key.txt"):
+def load_api_key(filepath="back/api_key.txt"):
     # Render上では環境変数から読み込む
     if "GROQ_API_KEY" in os.environ:
         return os.environ["GROQ_API_KEY"]
