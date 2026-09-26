@@ -1,2 +1,4 @@
 # txt ファイルは要らない
 api_key.txt
+*.db
+*.sqlite3
