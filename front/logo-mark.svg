@@ -1,17 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="AICompass">
-  <!-- AICompass ロゴマーク: 行き先 (次にやるタスク) を指すコンパス -->
-  <circle cx="32" cy="32" r="26" fill="#ffffff" stroke="#2196F3" stroke-width="4"/>
-  <!-- 東西南北の目盛り -->
-  <g stroke="#90CAF9" stroke-width="2.5" stroke-linecap="round">
-    <line x1="32" y1="10" x2="32" y2="14"/>
-    <line x1="54" y1="32" x2="50" y2="32"/>
-    <line x1="32" y1="54" x2="32" y2="50"/>
-    <line x1="10" y1="32" x2="14" y2="32"/>
-  </g>
-  <!-- 針: 右上 (前進) を指す。先端がアプリのメインカラーの緑 -->
+  <!-- AICompass ロゴマーク: 頭文字「C」の形の輪。右上の切れ目から針が前へ抜ける -->
+  <!-- 輪: 円周 (約138.2) のうち 104 を描き、残りを切れ目にする (右上が開く) -->
+  <circle cx="32" cy="32" r="22" fill="none" stroke="#2E3A59" stroke-width="6" stroke-linecap="round" stroke-dasharray="104 34.2"/>
+  <!-- 針: 右上を指す。先端がローズ -->
   <g transform="rotate(45 32 32)">
-    <polygon points="32,11 37.5,32 26.5,32" fill="#4CAF50"/>
-    <polygon points="32,53 37.5,32 26.5,32" fill="#B0BEC5"/>
+    <polygon points="32,8 36.5,32 27.5,32" fill="#E0677D"/>
+    <polygon points="32,46 36.5,32 27.5,32" fill="#C9D1E3"/>
   </g>
-  <circle cx="32" cy="32" r="3" fill="#37474F"/>
+  <circle cx="32" cy="32" r="3" fill="#2E3A59"/>
 </svg>
