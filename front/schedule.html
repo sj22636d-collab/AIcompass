@@ -47,7 +47,7 @@
             document.getElementById('loading').classList.remove('hidden');
 
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/generate_schedule", {
+                const res = await fetch("/api/generate_schedule", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ condition_text: text })

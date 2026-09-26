@@ -66,7 +66,7 @@
         // サーバーが応答しないときに待ち続けないよう、5秒で打ち切る
         async function fetchTasks() {
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/get_tasks", { signal: AbortSignal.timeout(5000) });
+                const res = await fetch("/api/get_tasks", { signal: AbortSignal.timeout(5000) });
                 if (!res.ok) return null;
                 return await res.json();
             } catch (e) {
