@@ -197,6 +197,44 @@ textarea:focus, input:focus {
 }
 .plan-list li.done strong { text-decoration: line-through; }
 
+/* 【変更】押して選べるタスクの行 (ホームの今日の予定・おすすめのタスク) */
+.plan-list li.selectable { cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+.plan-list li.selectable:hover { border-color: var(--navy-soft); }
+.plan-list li.selectable:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--navy-tint); }
+.plan-list li.selected { border-color: var(--navy); background: var(--navy-tint); }
+/* 1つだけ選ぶ (ホーム): 丸の中に点 */
+.plan-list li.selected.single::before { border-color: var(--navy); background: var(--navy); box-shadow: inset 0 0 0 3px #fff; }
+/* いくつでも選ぶ (おすすめ): チェック */
+.plan-list li.selected.multi::before {
+    content: "✓";
+    background: var(--navy);
+    border-color: var(--navy);
+    color: #fff;
+    font-size: 10px;
+    line-height: 12px;
+    text-align: center;
+}
+.list-heading { font-size: 0.95rem; margin: 20px 0 8px; }
+.list-hint { font-size: 0.85rem; color: var(--sub-text); margin: 0 0 10px; }
+
+/* 【変更】選ぶまでは押せない薄い白ボタン、選ぶと塗りつぶしのネイビーになる */
+.toggle-btn:disabled {
+    background-color: var(--box-bg);
+    color: var(--navy-soft);
+    border: 1.5px solid var(--line);
+    opacity: 1;
+}
+
+/* 【変更】完了にしたときの「かかった時間」の入力欄 */
+.minutes-row { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; }
+.minutes-row label { flex-shrink: 0; font-size: 0.9rem; }
+.minutes-row input { margin: 0; }
+
+/* 【変更】一覧の行の中に置く小さなボタン */
+.small-btn { width: auto; margin: 0; padding: 6px 14px; font-size: 0.85rem; }
+.row-complete { display: flex; align-items: center; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.row-complete input { width: 72px; margin: 0; padding: 6px 8px; }
+
 table { width: 100%; border-collapse: collapse; margin-top: 15px; }
 th, td { border: 1px solid var(--line); padding: 10px; text-align: left; font-size: 0.9rem; }
 th { background-color: var(--navy-tint); }

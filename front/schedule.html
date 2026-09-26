@@ -23,12 +23,23 @@
 
         <div id="loading" class="hidden">読み込み中...</div>
 
+        <!-- 【変更】AI の結果は「おすすめ」として出し、ホームに追加するタスクを自分で選ぶ方式にした -->
         <div id="result-section" class="result-box hidden">
             <p class="ai-reason" id="ai-message"></p>
-            <!-- 【変更】ホームの予定と同じ見た目にするため plan-list を使う -->
-            <ul id="schedule-list" class="plan-list"></ul>
-            <!-- 【変更】作った予定をホーム画面で確認できるよう追加 -->
+
+            <h2 class="list-heading">おすすめのタスク</h2>
+            <p class="list-hint">今日やるタスクを押して選んでください（いくつでも選べます）</p>
+            <p id="no-recommend" class="plan-empty hidden">おすすめはありませんでした。下のタスクから選べます。</p>
+            <ul id="schedule-list" class="plan-list" aria-label="おすすめのタスク"></ul>
+
+            <div id="others-section" class="hidden">
+                <h2 class="list-heading">ほかのタスク</h2>
+                <ul id="others-list" class="plan-list" aria-label="ほかのタスク"></ul>
+            </div>
+
+            <button id="btn-add" class="secondary-btn toggle-btn" disabled style="margin-top: 16px;">選択したタスクをホームに追加</button>
             <button class="primary-btn" onclick="location.href='index.html'">ホームに戻る</button>
+            <a href="#" id="retry-link" class="text-link">条件を変えて出し直す ›</a>
         </div>
     </div>
 
@@ -67,25 +78,26 @@
                 // 【変更】メッセージが空のときは空の枠を出さない
                 document.getElementById('ai-message').classList.toggle('hidden', !data.ai_message);
 
-                const list = document.getElementById('schedule-list');
-                list.innerHTML = '';
-                data.schedule.forEach(task => {
-                    list.innerHTML += `<li>
-                        <strong>${task.title || task.task_id}</strong>
-                        <span>${task.reason}</span>
-                    </li>`;
-                });
+                // 【変更】おすすめ以外の未着手タスクも選べるように、タスク一覧も取得する
+                const tasksRes = await apiFetch("/api/get_tasks");
+                if (!tasksRes.ok) throw new Error(`HTTP ${tasksRes.status}`);
+                const tasks = await tasksRes.json();
 
-                // 【変更】ホーム画面に表示するため、今日の日付と一緒にブラウザへ保存する
-                try {
-                    // 【変更】別のユーザーの予定と混ざらないよう、ユーザーごとのキーで保存する
-                    localStorage.setItem(planStorageKey(), JSON.stringify({
-                        date: todayString(),
-                        schedule: data.schedule.map(t => ({ task_id: t.task_id, title: t.title, reason: t.reason }))
-                    }));
-                } catch (e) {
-                    // プライベートブラウズなどで保存できなくても、この画面の表示は続ける
-                }
+                // すでに今日の予定に入っているタスクは、重ねて出さない
+                const plan = loadTodayPlan();
+                const inPlan = new Set(plan ? plan.schedule.map(t => t.task_id) : []);
+                const recommended = data.schedule.filter(t => !inPlan.has(t.task_id));
+                const recommendedIds = new Set(recommended.map(t => t.task_id));
+                const others = tasks
+                    .filter(t => t.status === '未着手' && !inPlan.has(t.id) && !recommendedIds.has(t.id))
+                    .map(t => ({ task_id: t.id, title: t.title, reason: '' }));
+
+                selected.clear();
+                renderChoices('schedule-list', recommended);
+                renderChoices('others-list', others);
+                document.getElementById('no-recommend').classList.toggle('hidden', recommended.length > 0);
+                document.getElementById('others-section').classList.toggle('hidden', others.length === 0);
+                updateAddButton();
 
                 document.getElementById('input-section').classList.add('hidden');
                 document.getElementById('result-section').classList.remove('hidden');
@@ -95,6 +107,88 @@
                 btn.disabled = false;
                 document.getElementById('loading').classList.add('hidden');
             }
+        });
+
+        // ==========================================
+        // 【変更】おすすめ・ほかのタスクから選んでホームに追加する
+        // ==========================================
+        const selected = new Map();  // task_id → {task_id, title, reason}
+
+        function loadTodayPlan() {
+            try {
+                const plan = JSON.parse(localStorage.getItem(planStorageKey()));
+                if (plan && plan.date === todayString() && Array.isArray(plan.schedule)) return plan;
+            } catch (e) {}
+            return null;
+        }
+
+        function toggleTask(li, task) {
+            if (selected.has(task.task_id)) {
+                selected.delete(task.task_id);
+                li.classList.remove('selected');
+                li.setAttribute('aria-checked', 'false');
+            } else {
+                selected.set(task.task_id, task);
+                li.classList.add('selected');
+                li.setAttribute('aria-checked', 'true');
+            }
+            updateAddButton();
+        }
+
+        function renderChoices(listId, items) {
+            const list = document.getElementById(listId);
+            list.innerHTML = '';
+            items.forEach(task => {
+                const li = document.createElement('li');
+                li.className = 'selectable multi';
+                li.tabIndex = 0;
+                li.setAttribute('role', 'checkbox');
+                li.setAttribute('aria-checked', 'false');
+                const title = document.createElement('strong');
+                title.textContent = task.title || task.task_id;
+                li.append(title);
+                if (task.reason) {
+                    const reason = document.createElement('span');
+                    reason.textContent = task.reason;
+                    li.append(reason);
+                }
+                li.addEventListener('click', () => toggleTask(li, task));
+                li.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleTask(li, task); }
+                });
+                list.append(li);
+            });
+        }
+
+        // 1つも選んでいないときは押せない薄い白ボタン、選ぶとネイビーのボタンになる
+        function updateAddButton() {
+            const btn = document.getElementById('btn-add');
+            btn.disabled = selected.size === 0;
+            btn.textContent = selected.size === 0
+                ? '選択したタスクをホームに追加'
+                : `選択したタスクをホームに追加（${selected.size}件）`;
+        }
+
+        document.getElementById('btn-add').addEventListener('click', () => {
+            if (selected.size === 0) return;
+            // 今日の予定がすでにあれば、その後ろに追加する
+            const plan = loadTodayPlan();
+            const schedule = (plan ? plan.schedule : []).concat(
+                [...selected.values()].map(t => ({ task_id: t.task_id, title: t.title, reason: t.reason || '' }))
+            );
+            try {
+                // 別のユーザーの予定と混ざらないよう、ユーザーごとのキーで保存する
+                localStorage.setItem(planStorageKey(), JSON.stringify({ date: todayString(), schedule }));
+            } catch (e) {
+                return alert('この端末には予定を保存できませんでした。');
+            }
+            location.href = 'index.html';
+        });
+
+        document.getElementById('retry-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('result-section').classList.add('hidden');
+            document.getElementById('input-section').classList.remove('hidden');
         });
     </script>
 </body>
