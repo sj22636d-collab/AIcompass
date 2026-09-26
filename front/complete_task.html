@@ -24,7 +24,13 @@
 
         <div id="confirm-section" class="result-box hidden">
             <h2>このタスクを完了にしますか？</h2>
+            <!-- 【変更前】
             <p><strong>タスク:</strong> <span id="res-task-name"></span></p>
+            -->
+            <!-- 【変更後】ドロップダウンに変更 -->
+            <p><strong>タスク:</strong> 
+                <select id="task-select" class="form-input"></select>
+            </p>
             
             <label>かかった時間 (分)</label>
             <input type="number" id="actual-time">
@@ -38,13 +44,27 @@
     <script>
         requireLogin();
 
-        let currentTaskId = null;
+        // ユーザーの未着手タスクを保持する変数
+        let pendingTasks = [];
+
+        // ページ読み込み時に未着手タスク一覧を取得しておく
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await apiFetch("/api/get_tasks");
+                if (res.ok) {
+                    const tasks = await res.json();
+                    // 「未着手」のタスクだけを絞り込み
+                    pendingTasks = tasks.filter(t => t.status === '未着手');
+                }
+            } catch (e) {
+                console.error("タスク一覧の取得に失敗しました", e);
+            }
+        });
 
         document.getElementById('btn-report').addEventListener('click', async () => {
             const text = document.getElementById('report-input').value;
             if (!text) return alert('入力してください');
 
-            // 【変更】通信中はボタンを押せなくする (連打防止)
             const btn = document.getElementById('btn-report');
             btn.disabled = true;
             document.getElementById('loading').classList.remove('hidden');
@@ -55,17 +75,37 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ report_text: text })
                 });
-                // 【変更】エラー応答のときは確認画面に進まない
+                
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
 
-                if (!data.task_id) {
-                    alert("当てはまるタスクが見つかりませんでした。");
+                // 【追加】ドロップダウン(select)の選択肢を生成する
+                const selectEl = document.getElementById('task-select');
+                selectEl.innerHTML = ''; // 中身をリセット
+                
+                pendingTasks.forEach(task => {
+                    const option = document.createElement('option');
+                    option.value = task.id;
+                    option.textContent = task.title;
+                    
+                    // AIが推測したタスクIDと一致すれば、初期選択状態にする
+                    if (data.task_id && task.id === data.task_id) {
+                        option.selected = true;
+                    }
+                    selectEl.appendChild(option);
+                });
+
+                // 万が一未着手タスクが1つもない場合の警告
+                if (pendingTasks.length === 0) {
+                    alert("完了できる未着手タスクがありません。");
                     return;
                 }
+
+                if (!data.task_id) {
+                    // AIが特定できなかった場合でも、手動で選べるように確認画面には進む
+                    alert("自動判定できませんでした。リストからタスクを選択してください。");
+                }
                 
-                currentTaskId = data.task_id;
-                document.getElementById('res-task-name').textContent = data.task_title;
                 document.getElementById('actual-time').value = data.actual_minutes || 0;
                 
                 document.getElementById('input-section').classList.add('hidden');
@@ -79,22 +119,24 @@
         });
 
         document.getElementById('btn-complete').addEventListener('click', async () => {
-            // 【変更】通信中はボタンを押せなくする (連打防止)
             const btn = document.getElementById('btn-complete');
+            
+            // 【変更】変数 currentTaskId ではなく、ドロップダウンから選択中のIDを取得する
+            const selectedTaskId = document.getElementById('task-select').value;
             const actualMinutes = parseInt(document.getElementById('actual-time').value) || 0;
+            
             btn.disabled = true;
             try {
                 const res = await apiFetch("/api/complete_task", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ task_id: currentTaskId, actual_minutes: actualMinutes })
+                    body: JSON.stringify({ task_id: selectedTaskId, actual_minutes: actualMinutes })
                 });
                 if (res.ok) {
                     alert("記録しました");
                     location.href = 'index.html';
                     return;
                 }
-                // 【変更】記録できなかったときに何も表示されなかった問題を修正
                 alert(res.status === 404 ? "このタスクは見つかりませんでした。" : "記録に失敗しました。");
             } catch (e) {
                 alert("記録に失敗しました。");
