@@ -9,7 +9,7 @@
 </head>
 <body>
     <header>
-        <a href="index.html" class="home-link">◀ 戻る</a>
+        <a href="index.html" class="home-link">‹ 戻る</a>
         <!-- 【変更】見出し・ボタン・メッセージの文言を、AIっぽくない短い表現に変更 -->
         <h1>タスク一覧</h1>
     </header>
@@ -32,10 +32,14 @@
         </table>
     </div>
 
+    <!-- 【変更】ログイン管理の共通処理を読み込み、未ログインならログイン画面へ -->
+    <script src="auth.js"></script>
     <script>
+        requireLogin();
+
         document.addEventListener('DOMContentLoaded', async () => {
             try {
-                const res = await fetch("/api/get_tasks");
+                const res = await apiFetch("/api/get_tasks");
                 // 【変更】エラー応答のときは成功扱いにしない
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const tasks = await res.json();
@@ -73,7 +77,7 @@
             const btn = document.getElementById('btn-run-batch');
             btn.disabled = true;
             try {
-                const res = await fetch("/api/run_weekly_batch", { method: "POST" });
+                const res = await apiFetch("/api/run_weekly_batch", { method: "POST" });
                 // 【変更】エラー応答のときは成功扱いにしない
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();

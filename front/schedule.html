@@ -9,7 +9,7 @@
 </head>
 <body>
     <header>
-        <a href="index.html" class="home-link">◀ 戻る</a>
+        <a href="index.html" class="home-link">‹ 戻る</a>
         <!-- 【変更】見出し・ボタン・メッセージの文言を、AIっぽくない短い表現に変更 -->
         <h1>今日やることを決める</h1>
     </header>
@@ -30,7 +30,11 @@
         </div>
     </div>
 
+    <!-- 【変更】ログイン管理の共通処理を読み込み、未ログインならログイン画面へ -->
+    <script src="auth.js"></script>
     <script>
+        requireLogin();
+
         // 【変更】端末のローカル日付を YYYY-MM-DD で返す (toISOString は UTC なので朝9時前に前日になる)
         function todayString() {
             const d = new Date();
@@ -47,7 +51,7 @@
             document.getElementById('loading').classList.remove('hidden');
 
             try {
-                const res = await fetch("/api/generate_schedule", {
+                const res = await apiFetch("/api/generate_schedule", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ condition_text: text })
@@ -70,7 +74,8 @@
 
                 // 【変更】ホーム画面に表示するため、今日の日付と一緒にブラウザへ保存する
                 try {
-                    localStorage.setItem('todayPlan', JSON.stringify({
+                    // 【変更】別のユーザーの予定と混ざらないよう、ユーザーごとのキーで保存する
+                    localStorage.setItem(planStorageKey(), JSON.stringify({
                         date: todayString(),
                         schedule: data.schedule.map(t => ({ task_id: t.task_id, title: t.title, reason: t.reason }))
                     }));
