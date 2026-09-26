@@ -211,7 +211,7 @@ def logout_api(authorization: Optional[str] = Header(None)):
 @app.post("/api/extract_task")
 def extract_task_api(request: TaskExtractRequest, user: dict = Depends(get_current_user)):
     now_str = datetime.now().isoformat()
-    prompt = render_prompt("extract_task", now_str=now_str, user_input=request.user_input)
+    prompt = render_prompt("extract_task", now_str=now_str, task_description=request.user_input)
 
     response = client.chat.completions.create(
         model=GROQ_MODEL,
@@ -269,8 +269,8 @@ def generate_schedule_api(request: ConditionRequest, user: dict = Depends(get_cu
         "generate_schedule",
         now_str=now_str,
         user_profile=user_profile,
-        tasks_json=tasks_json,
-        condition_text=request.condition_text,
+        pending_tasks_json=tasks_json,
+        user_condition=request.condition_text,
     )
 
     response = client.chat.completions.create(
@@ -304,7 +304,7 @@ def parse_completion_api(request: ParseCompletionRequest, user: dict = Depends(g
     tasks_json = json.dumps(uncompleted_tasks, ensure_ascii=False)
 
 
-    prompt = render_prompt("parse_completion", tasks_json=tasks_json, report_text=request.report_text)
+    prompt = render_prompt("parse_completion", pending_tasks_json=tasks_json, completion_report=request.report_text)
     
 
 
@@ -369,7 +369,7 @@ def run_weekly_batch_api(user: dict = Depends(get_current_user)):
     tasks_data = [dict(row) for row in completed_tasks]
     tasks_json = json.dumps(tasks_data, ensure_ascii=False)
     
-    prompt = render_prompt("weekly_profile", tasks_json=tasks_json)
+    prompt = render_prompt("weekly_profile", completed_tasks_json=tasks_json)
     
     response = client.chat.completions.create(
         model=GROQ_MODEL,
