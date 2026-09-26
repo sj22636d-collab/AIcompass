@@ -25,7 +25,8 @@
 
         <div id="result-section" class="result-box hidden">
             <p class="ai-reason" id="ai-message"></p>
-            <ul id="schedule-list" style="list-style:none; padding:0;"></ul>
+            <!-- 【変更】ホームの予定と同じ見た目にするため plan-list を使う -->
+            <ul id="schedule-list" class="plan-list"></ul>
             <!-- 【変更】作った予定をホーム画面で確認できるよう追加 -->
             <button class="primary-btn" onclick="location.href='index.html'">ホームに戻る</button>
         </div>
@@ -63,13 +64,15 @@
                 if (!Array.isArray(data.schedule)) throw new Error("schedule がありません");
 
                 document.getElementById('ai-message').textContent = data.ai_message ?? '';
+                // 【変更】メッセージが空のときは空の枠を出さない
+                document.getElementById('ai-message').classList.toggle('hidden', !data.ai_message);
 
                 const list = document.getElementById('schedule-list');
                 list.innerHTML = '';
                 data.schedule.forEach(task => {
-                    list.innerHTML += `<li style="background:#f9f9f9; margin-bottom:10px; padding:15px; border-left:4px solid #2196F3;">
-                        <strong>${task.title || task.task_id}</strong><br>
-                        <span style="font-size:0.8rem; color:#666;">${task.reason}</span>
+                    list.innerHTML += `<li>
+                        <strong>${task.title || task.task_id}</strong>
+                        <span>${task.reason}</span>
                     </li>`;
                 });
 
