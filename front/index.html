@@ -12,6 +12,12 @@
         <h1>AI Task Assistant [DayPalette]</h1>
     </header>
     <div class="container">
+        <!-- 【変更】ログイン中のユーザー名とログアウト -->
+        <div class="user-bar">
+            <span id="user-name"></span>
+            <a href="#" id="logout-link">ログアウト</a>
+        </div>
+
         <!-- 【変更】ホーム画面を作り直し: サーバー停止時の表示・期限のお知らせ・今日の予定・状況に応じて変わる大きいボタン -->
         <p id="server-error" class="notice-error hidden">サーバーにつながりません。バックエンドが起動しているか確認してください。</p>
 
@@ -40,7 +46,16 @@
     </div>
 
     <!-- 【変更】予定・期限の表示と、状況に応じたボタンの切り替えを行う処理を追加 -->
+    <!-- 【変更】ログイン管理の共通処理を読み込み、未ログインならログイン画面へ -->
+    <script src="auth.js"></script>
     <script>
+        const auth = requireLogin();
+        if (auth) document.getElementById('user-name').textContent = `${auth.username} さん`;
+        document.getElementById('logout-link').addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+
         function todayString() {
             const d = new Date();
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -54,7 +69,8 @@
 
         function loadTodayPlan() {
             try {
-                const plan = JSON.parse(localStorage.getItem('todayPlan'));
+                // 【変更】予定はユーザーごとのキーで保存している
+                const plan = JSON.parse(localStorage.getItem(planStorageKey()));
                 // 前日以前に作った予定は使わない
                 if (plan && plan.date === todayString() && Array.isArray(plan.schedule) && plan.schedule.length > 0) return plan;
             } catch (e) {
@@ -66,7 +82,7 @@
         // サーバーが応答しないときに待ち続けないよう、5秒で打ち切る
         async function fetchTasks() {
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/get_tasks", { signal: AbortSignal.timeout(5000) });
+                const res = await apiFetch("/api/get_tasks", { signal: AbortSignal.timeout(5000) });
                 if (!res.ok) return null;
                 return await res.json();
             } catch (e) {

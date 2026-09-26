@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ログイン</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 【変更】ログイン画面を新規作成。ログインと新規登録を1画面で切り替える -->
+    <header>
+        <h1>AI Task Assistant [DayPalette]</h1>
+    </header>
+    <div class="container">
+        <h2 id="form-title">ログイン</h2>
+        <form id="auth-form" novalidate>
+            <label for="username">ユーザー名</label>
+            <input type="text" id="username" autocomplete="username" required>
+
+            <label for="password">パスワード</label>
+            <input type="password" id="password" autocomplete="current-password" required>
+
+            <div id="confirm-field" class="hidden">
+                <label for="password-confirm">パスワード (確認)</label>
+                <input type="password" id="password-confirm" autocomplete="new-password">
+            </div>
+
+            <p id="form-error" class="notice-error hidden"></p>
+
+            <button type="submit" id="btn-submit" class="secondary-btn">ログイン</button>
+        </form>
+        <a href="#" id="toggle-mode" class="text-link">アカウントを作成する ›</a>
+    </div>
+
+    <script src="auth.js"></script>
+    <script>
+        // すでにログイン済みならホームへ
+        if (getAuth()) location.replace('index.html');
+
+        let mode = 'login';
+
+        function showError(message) {
+            const el = document.getElementById('form-error');
+            el.textContent = message;
+            el.classList.toggle('hidden', !message);
+        }
+
+        document.getElementById('toggle-mode').addEventListener('click', (e) => {
+            e.preventDefault();
+            mode = mode === 'login' ? 'register' : 'login';
+            const isRegister = mode === 'register';
+            document.getElementById('form-title').textContent = isRegister ? 'アカウント作成' : 'ログイン';
+            document.getElementById('btn-submit').textContent = isRegister ? '作成してはじめる' : 'ログイン';
+            document.getElementById('toggle-mode').textContent = isRegister ? 'ログインに戻る ›' : 'アカウントを作成する ›';
+            document.getElementById('confirm-field').classList.toggle('hidden', !isRegister);
+            document.getElementById('password').autocomplete = isRegister ? 'new-password' : 'current-password';
+            showError('');
+        });
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) return showError('ユーザー名とパスワードを入力してください');
+            if (mode === 'register') {
+                if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) return showError('ユーザー名は半角英数字と _ で3〜20文字にしてください');
+                if (password.length < 8) return showError('パスワードは8文字以上にしてください');
+                if (password !== document.getElementById('password-confirm').value) return showError('確認用のパスワードが一致しません');
+            }
+
+            const btn = document.getElementById('btn-submit');
+            btn.disabled = true;
+            showError('');
+            try {
+                const res = await fetch(`${API_BASE}/api/${mode === 'register' ? 'register' : 'login'}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password })
+                });
+                if (res.ok) {
+                    saveAuth(await res.json());
+                    location.replace('index.html');
+                    return;
+                }
+                if (res.status === 401) showError('ユーザー名かパスワードが違います');
+                else if (res.status === 409) showError('このユーザー名はすでに使われています');
+                else if (res.status === 404) showError('ログイン機能がまだサーバーに用意されていません');
+                else showError(`ログインに失敗しました (HTTP ${res.status})`);
+            } catch (err) {
+                showError('サーバーにつながりません。バックエンドが起動しているか確認してください。');
+            }
+            btn.disabled = false;
+        });
+    </script>
+</body>
+</html>

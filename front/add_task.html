@@ -9,7 +9,7 @@
 </head>
 <body>
     <header>
-        <a href="index.html" class="home-link">◀ 戻る</a>
+        <a href="index.html" class="home-link">‹ 戻る</a>
         <!-- 【変更】見出し・ボタン・メッセージの文言を、AIっぽくない短い表現に変更 -->
         <h1>タスクを追加</h1>
     </header>
@@ -42,7 +42,11 @@
         </div>
     </div>
 
+    <!-- 【変更】ログイン管理の共通処理を読み込み、未ログインならログイン画面へ -->
+    <script src="auth.js"></script>
     <script>
+        requireLogin();
+
         document.getElementById('btn-analyze').addEventListener('click', async () => {
             const text = document.getElementById('task-input').value;
             if (!text) return alert('入力してください');
@@ -53,7 +57,7 @@
             document.getElementById('loading').classList.remove('hidden');
 
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/extract_task", {
+                const res = await apiFetch("/api/extract_task", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ user_input: text })
@@ -94,7 +98,7 @@
             // 【変更】連打で同じタスクが二重登録されないよう、通信中は押せなくする
             btn.disabled = true;
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/save_task", {
+                const res = await apiFetch("/api/save_task", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)
