@@ -3,7 +3,7 @@ import re
 import json
 import sqlite3
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 # 【変更】存在しないタスクに 404 を返すため HTTPException を追加
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict
@@ -72,6 +72,34 @@ client = OpenAI(
 # Groqが現在提供している最新の高速推論モデルに変更
 GROQ_MODEL = "openai/gpt-oss-20b"
 
+# === 日付ユーティリティ ===
+# サーバーのタイムゾーンに関係なく日本時間で扱う
+JST = timezone(timedelta(hours=9))
+WEEKDAYS_JA = ["月", "火", "水", "木", "金", "土", "日"]
+
+def now_jst():
+    return datetime.now(JST)
+
+def format_now(now):
+    return f"{now.strftime('%Y-%m-%d')}（{WEEKDAYS_JA[now.weekday()]}） {now.strftime('%H:%M')}"
+
+# LLMに日付計算をさせないよう、今日から数週間分の「日付・曜日・週」の早見表を作る
+def build_date_table(now, days=35):
+    today = now.date()
+    this_monday = today - timedelta(days=today.weekday())
+    week_labels = ["今週", "来週", "再来週"]
+    special = {0: "今日", 1: "明日", 2: "明後日"}
+    lines = []
+    for i in range(days):
+        d = today + timedelta(days=i)
+        week_index = (d - this_monday).days // 7
+        week = week_labels[week_index] if week_index < len(week_labels) else f"{week_index}週間後"
+        label = f"{week}の{WEEKDAYS_JA[d.weekday()]}曜"
+        if i in special:
+            label = f"{special[i]}、{label}"
+        lines.append(f"{d.isoformat()}（{WEEKDAYS_JA[d.weekday()]}） {label}")
+    return "\n".join(lines)
+
 # === リクエストスキーマ ===
 class TaskExtractRequest(BaseModel):
     user_input: str
@@ -97,8 +125,13 @@ class CompleteTaskRequest(BaseModel):
 # ==========================================
 @app.post("/api/extract_task")
 def extract_task_api(request: TaskExtractRequest):
-    now_str = datetime.now().isoformat()
-    prompt = render_prompt("extract_task", now_str=now_str, task_description=request.user_input)
+    now = now_jst()
+    prompt = render_prompt(
+        "extract_task",
+        now_str=format_now(now),
+        date_table=build_date_table(now),
+        task_description=request.user_input,
+    )
 
     response = client.chat.completions.create(
         model=GROQ_MODEL,
@@ -144,7 +177,7 @@ def generate_schedule_api(request: ConditionRequest):
     
     uncompleted_tasks = [dict(row) for row in rows]
     tasks_json = json.dumps(uncompleted_tasks, ensure_ascii=False)
-    now_str = datetime.now().isoformat()
+    now_str = format_now(now_jst())
 
     user_profile = ""
     if os.path.exists("user_profile.txt"):
