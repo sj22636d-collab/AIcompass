@@ -4,7 +4,8 @@ import json
 import sqlite3
 import uuid
 from datetime import datetime
-from fastapi import FastAPI
+# 【変更】存在しないタスクに 404 を返すため HTTPException を追加
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from openai import OpenAI
@@ -170,7 +171,16 @@ def generate_schedule_api(request: ConditionRequest):
         messages=[{"role": "system", "content": prompt}],
         temperature=0.4,
     )
-    return json.loads(response.choices[0].message.content)
+    result = json.loads(response.choices[0].message.content)
+
+    # 【変更】AIが一覧にないタスクを作ることがあるので、実在する未着手タスクだけ残す
+    titles_by_id = {task["id"]: task["title"] for task in uncompleted_tasks}
+    result["schedule"] = [
+        {**item, "title": titles_by_id[item["task_id"]]}
+        for item in result.get("schedule", [])
+        if isinstance(item, dict) and item.get("task_id") in titles_by_id
+    ]
+    return result
 
 # ==========================================
 # API 5: 完了報告の解析
@@ -184,23 +194,38 @@ def parse_completion_api(request: ParseCompletionRequest):
     uncompleted_tasks = [dict(row) for row in rows]
     tasks_json = json.dumps(uncompleted_tasks, ensure_ascii=False)
 
-    # プロンプト内に「JSON」という単語を追加
+
+    # 【変更】"JSON" の語がないと json_object モードがエラーになるため追記。該当なしのときの null の返し方も明示
     prompt = f"""
-    ユーザーの完了報告テキストと、未着手タスク一覧を照らし合わせ、どのタスクが完了したかを特定してください。
-    必ずJSON形式で出力してください。
+    ユーザーの完了報告テキストと、未着手タスク一覧を照らし合わせ、どのタスクが完了したかを特定し、JSONで出力してください。
     【未着手タスク】{tasks_json}
     【報告テキスト】{request.report_text}
-    
-    出力形式: {{"task_id": "特定したID(不明ならnull)", "task_title": "タスク名", "actual_minutes": かかった時間(分・数値のみ抽出)}}
+
+    出力形式: {{"task_id": "特定したID", "task_title": "タスク名", "actual_minutes": かかった時間(分の整数)}}
+    該当するタスクがない場合は task_id を JSON の null にしてください（文字列の "null" にはしないこと）。
     """
-    
+
     response = client.chat.completions.create(
         model=GROQ_MODEL,
         response_format={"type": "json_object"},
         messages=[{"role": "system", "content": prompt}],
         temperature=0.1,
     )
-    return json.loads(response.choices[0].message.content)
+    result = json.loads(response.choices[0].message.content)
+
+    # 【変更】AIが一覧にないIDや "null" を返すことがあるので、実在する未着手タスクか確認する
+    titles_by_id = {task["id"]: task["title"] for task in uncompleted_tasks}
+    task_id = result.get("task_id")
+    if task_id not in titles_by_id:
+        return {"task_id": None, "task_title": None, "actual_minutes": None}
+
+    # 【変更】"180分" のように文字列で返ってきた場合も数値にする
+    minutes = result.get("actual_minutes")
+    if not isinstance(minutes, int):
+        digits = re.search(r"\d+", str(minutes))
+        minutes = int(digits.group()) if digits else 0
+
+    return {"task_id": task_id, "task_title": titles_by_id[task_id], "actual_minutes": minutes}
 
 # ==========================================
 # API 6: タスクを「完了」としてDBに記録
@@ -208,12 +233,15 @@ def parse_completion_api(request: ParseCompletionRequest):
 @app.post("/api/complete_task")
 def complete_task_api(request: CompleteTaskRequest):
     conn = get_db_connection()
-    conn.execute(
+    cursor = conn.execute(
         "UPDATE tasks SET status = '完了', actual_minutes = ? WHERE id = ?",
         (request.actual_minutes, request.task_id)
     )
     conn.commit()
     conn.close()
+    # 【変更】該当タスクがなければ成功扱いにせず 404 を返す
+    if cursor.rowcount == 0:
+        raise HTTPException(status_code=404, detail="指定されたタスクが見つかりません")
     return {"status": "success"}
 
 # ==========================================
