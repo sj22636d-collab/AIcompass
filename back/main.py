@@ -234,8 +234,13 @@ def logout_api(authorization: Optional[str] = Header(None)):
 # 【変更】全 API をログイン必須にした (ここは AI の利用料を第三者に使われないため)
 @app.post("/api/extract_task")
 def extract_task_api(request: TaskExtractRequest):
-    now_str = datetime.now().isoformat()
-    prompt = render_prompt("extract_task", now_str=now_str, task_description=request.user_input)
+    now = now_jst()
+    prompt = render_prompt(
+        "extract_task",
+        now_str=format_now(now),
+        date_table=build_date_table(now),
+        task_description=request.user_input,
+    )
 
     response = client.chat.completions.create(
         model=GROQ_MODEL,
