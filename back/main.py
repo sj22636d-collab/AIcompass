@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from openai import OpenAI
 from fastapi.middleware.cors import CORSMiddleware
-from prompt_loader import render_prompt
+from .prompt_loader import render_prompt
 from fastapi.staticfiles import StaticFiles
 
 # 【変更】SQLite の代わりに psycopg2 をインポート
