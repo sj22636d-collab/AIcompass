@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from openai import OpenAI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
@@ -64,8 +65,8 @@ client = OpenAI(
     base_url="https://api.groq.com/openai/v1"
 )
 
-# 使用するGroqモデルの定義
-GROQ_MODEL = "llama-3.3-70b-versatile"
+# Groqが現在提供している最新の高速推論モデルに変更
+GROQ_MODEL = "openai/gpt-oss-20b"
 
 # === リクエストスキーマ ===
 class TaskExtractRequest(BaseModel):
@@ -193,6 +194,7 @@ def parse_completion_api(request: ParseCompletionRequest):
     uncompleted_tasks = [dict(row) for row in rows]
     tasks_json = json.dumps(uncompleted_tasks, ensure_ascii=False)
 
+
     # 【変更】"JSON" の語がないと json_object モードがエラーになるため追記。該当なしのときの null の返し方も明示
     prompt = f"""
     ユーザーの完了報告テキストと、未着手タスク一覧を照らし合わせ、どのタスクが完了したかを特定し、JSONで出力してください。
@@ -280,3 +282,11 @@ def run_weekly_batch_api():
     conn.close()
     
     return {"status": "success", "profile": profile_text}
+
+# ファイルの一番下に追加
+# backフォルダの親ディレクトリにある「front」フォルダのパスを取得
+base_dir = os.path.dirname(os.path.abspath(__file__))
+front_dir = os.path.join(base_dir, "..", "front")
+
+# frontフォルダ内のHTML/CSS/JSを配信
+app.mount("/", StaticFiles(directory=front_dir, html=True), name="front")
