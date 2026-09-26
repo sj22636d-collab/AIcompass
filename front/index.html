@@ -2,19 +2,163 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <!-- 【変更】スマホで正しい幅で表示するため追加 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AI Task Assistant - Home</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1>🏠 AI Task Assistant</h1>
+        <h1>AI Task Assistant [DayPalette]</h1>
     </header>
     <div class="container">
-        <h2>メニュー</h2>
-        <button class="primary-btn" onclick="location.href='add_task.html'">✏️ タスクを入力する</button>
-        <button class="secondary-btn" onclick="location.href='schedule.html'">🚀 今からやるタスクを出す</button>
-        <button class="danger-btn" onclick="location.href='complete_task.html'">✅ 完了したタスクを報告する</button>
-        <button class="action-btn" style="background-color: #607d8b;" onclick="location.href='all_tasks.html'">📋 全タスクを確認する</button>
+        <!-- 【変更】ホーム画面を作り直し: サーバー停止時の表示・期限のお知らせ・今日の予定・状況に応じて変わる大きいボタン -->
+        <p id="server-error" class="notice-error hidden">サーバーにつながりません。バックエンドが起動しているか確認してください。</p>
+
+        <section id="deadline-alerts" class="hidden">
+            <h2>期限が迫っているタスク</h2>
+            <ul id="deadline-list" class="deadline-list"></ul>
+        </section>
+
+        <section id="today-plan">
+            <div class="plan-header">
+                <h2>今日の予定</h2>
+                <span id="today-plan-progress" class="plan-progress"></span>
+            </div>
+            <p id="plan-message" class="plan-empty">まだ決めていません</p>
+            <ul id="today-plan-list" class="plan-list"></ul>
+            <a id="replan-link" class="text-link hidden" href="schedule.html">作り直す ›</a>
+        </section>
+
+        <!-- 状況によって中身が変わる。そのとき一番よく使う操作だけを大きく出す -->
+        <button id="main-action" class="secondary-btn" onclick="location.href='schedule.html'">今日やることを決める</button>
+
+        <div class="sub-actions">
+            <button id="sub-add" class="primary-btn" onclick="location.href='add_task.html'">タスクを追加</button>
+            <button class="primary-btn" onclick="location.href='all_tasks.html'">タスク一覧</button>
+        </div>
     </div>
+
+    <!-- 【変更】予定・期限の表示と、状況に応じたボタンの切り替えを行う処理を追加 -->
+    <script>
+        function todayString() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
+        function setMainAction(label, href) {
+            const btn = document.getElementById('main-action');
+            btn.textContent = label;
+            btn.onclick = () => { location.href = href; };
+        }
+
+        function loadTodayPlan() {
+            try {
+                const plan = JSON.parse(localStorage.getItem('todayPlan'));
+                // 前日以前に作った予定は使わない
+                if (plan && plan.date === todayString() && Array.isArray(plan.schedule) && plan.schedule.length > 0) return plan;
+            } catch (e) {
+                // 保存できない環境や壊れたデータのときは予定なし扱い
+            }
+            return null;
+        }
+
+        // サーバーが応答しないときに待ち続けないよう、5秒で打ち切る
+        async function fetchTasks() {
+            try {
+                const res = await fetch("/api/get_tasks", { signal: AbortSignal.timeout(5000) });
+                if (!res.ok) return null;
+                return await res.json();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function renderDeadlineAlerts(tasks) {
+            const today = todayString();
+            const urgent = tasks
+                .filter(t => t.status === '未着手' && /^\d{4}-\d{2}-\d{2}$/.test(t.deadline || '') && t.deadline <= today)
+                .sort((a, b) => a.deadline.localeCompare(b.deadline));
+            if (urgent.length === 0) return;
+
+            const list = document.getElementById('deadline-list');
+            urgent.forEach(t => {
+                const overdue = t.deadline < today;
+                const [, m, d] = t.deadline.split('-').map(Number);
+                const li = document.createElement('li');
+                const badge = document.createElement('span');
+                badge.className = overdue ? 'badge badge-overdue' : 'badge badge-today';
+                badge.textContent = overdue ? `期限切れ ${m}/${d}` : '今日まで';
+                const title = document.createElement('span');
+                title.textContent = t.title;
+                li.append(badge, title);
+                list.append(li);
+            });
+            document.getElementById('deadline-alerts').classList.remove('hidden');
+        }
+
+        function renderPlan(plan, statusById) {
+            const list = document.getElementById('today-plan-list');
+            let doneCount = 0;
+            plan.schedule.forEach(task => {
+                // 週次の整理で完了タスクは削除されるので、一覧にないものも完了扱いにする
+                const done = statusById !== null && (statusById[task.task_id] === '完了' || !(task.task_id in statusById));
+                if (done) doneCount++;
+
+                const li = document.createElement('li');
+                if (done) li.classList.add('done');
+                const title = document.createElement('strong');
+                title.textContent = task.title || task.task_id;
+                const reason = document.createElement('span');
+                reason.textContent = task.reason || '';
+                li.append(title, reason);
+                list.append(li);
+            });
+            if (statusById !== null) {
+                document.getElementById('today-plan-progress').textContent = `${doneCount} / ${plan.schedule.length} 完了`;
+            }
+            return doneCount === plan.schedule.length;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const plan = loadTodayPlan();
+            const tasks = await fetchTasks();
+            const message = document.getElementById('plan-message');
+
+            if (tasks === null) {
+                document.getElementById('server-error').classList.remove('hidden');
+            } else {
+                renderDeadlineAlerts(tasks);
+            }
+
+            const statusById = tasks === null ? null : Object.fromEntries(tasks.map(t => [t.id, t.status]));
+            const pendingCount = tasks === null ? null : tasks.filter(t => t.status === '未着手').length;
+
+            if (!plan) {
+                if (pendingCount === 0) {
+                    // タスクが1件もないと予定は作れないので、まず登録へ案内する
+                    message.textContent = 'まずはタスクを登録しましょう';
+                    setMainAction('タスクを追加', 'add_task.html');
+                    document.getElementById('sub-add').classList.add('hidden');
+                }
+                return;
+            }
+
+            const allDone = renderPlan(plan, statusById);
+            if (allDone && statusById !== null) {
+                message.textContent = '今日の予定はすべて完了しました';
+                if (pendingCount === 0) {
+                    setMainAction('タスクを追加', 'add_task.html');
+                    document.getElementById('sub-add').classList.add('hidden');
+                } else {
+                    setMainAction('追加で決める', 'schedule.html');
+                }
+            } else {
+                message.classList.add('hidden');
+                document.getElementById('replan-link').classList.remove('hidden');
+                setMainAction('終わったタスクを記録', 'complete_task.html');
+            }
+        });
+    </script>
 </body>
 </html>

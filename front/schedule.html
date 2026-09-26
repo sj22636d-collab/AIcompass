@@ -2,60 +2,88 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>今日のプラン</title>
+    <!-- 【変更】スマホで正しい幅で表示するため追加 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>今日やることを決める</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <a href="index.html" class="home-link">◀ 戻る</a>
-        <h1>今日のプラン作成</h1>
+        <!-- 【変更】見出し・ボタン・メッセージの文言を、AIっぽくない短い表現に変更 -->
+        <h1>今日やることを決める</h1>
     </header>
     <div class="container">
         <div id="input-section">
-            <h2>今の状態を教えてください</h2>
+            <h2>今日の空き時間や調子</h2>
             <textarea id="condition-input" placeholder="例: 午後から2時間だけ。疲れてる。"></textarea>
-            <button id="btn-generate" class="secondary-btn">今日のプランを作成</button>
+            <button id="btn-generate" class="secondary-btn">決める</button>
         </div>
 
-        <div id="loading" class="hidden">AIがスケジュールを構築中...</div>
+        <div id="loading" class="hidden">読み込み中...</div>
 
         <div id="result-section" class="result-box hidden">
             <p class="ai-reason" id="ai-message"></p>
             <ul id="schedule-list" style="list-style:none; padding:0;"></ul>
+            <!-- 【変更】作った予定をホーム画面で確認できるよう追加 -->
+            <button class="primary-btn" onclick="location.href='index.html'">ホームに戻る</button>
         </div>
     </div>
 
     <script>
+        // 【変更】端末のローカル日付を YYYY-MM-DD で返す (toISOString は UTC なので朝9時前に前日になる)
+        function todayString() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+
         document.getElementById('btn-generate').addEventListener('click', async () => {
             const text = document.getElementById('condition-input').value;
             if (!text) return alert('入力してください');
-            
+
+            // 【変更】通信中はボタンを押せなくする (連打防止)
+            const btn = document.getElementById('btn-generate');
+            btn.disabled = true;
             document.getElementById('loading').classList.remove('hidden');
-            
+
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/generate_schedule", {
+                const res = await fetch("/api/generate_schedule", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ condition_text: text })
                 });
+                // 【変更】エラー応答や想定外の形の応答では結果を出さない
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
-                
-                document.getElementById('ai-message').textContent = data.ai_message;
-                
+                if (!Array.isArray(data.schedule)) throw new Error("schedule がありません");
+
+                document.getElementById('ai-message').textContent = data.ai_message ?? '';
+
                 const list = document.getElementById('schedule-list');
                 list.innerHTML = '';
                 data.schedule.forEach(task => {
                     list.innerHTML += `<li style="background:#f9f9f9; margin-bottom:10px; padding:15px; border-left:4px solid #2196F3;">
                         <strong>${task.title || task.task_id}</strong><br>
-                        <span style="font-size:0.8rem; color:#666;">💡 ${task.reason}</span>
+                        <span style="font-size:0.8rem; color:#666;">${task.reason}</span>
                     </li>`;
                 });
-                
+
+                // 【変更】ホーム画面に表示するため、今日の日付と一緒にブラウザへ保存する
+                try {
+                    localStorage.setItem('todayPlan', JSON.stringify({
+                        date: todayString(),
+                        schedule: data.schedule.map(t => ({ task_id: t.task_id, title: t.title, reason: t.reason }))
+                    }));
+                } catch (e) {
+                    // プライベートブラウズなどで保存できなくても、この画面の表示は続ける
+                }
+
                 document.getElementById('input-section').classList.add('hidden');
                 document.getElementById('result-section').classList.remove('hidden');
             } catch (e) {
-                alert("エラーが発生しました。");
+                alert("作成に失敗しました。時間をおいてもう一度お試しください。");
             } finally {
+                btn.disabled = false;
                 document.getElementById('loading').classList.add('hidden');
             }
         });

@@ -2,31 +2,34 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>完了報告</title>
+    <!-- 【変更】スマホで正しい幅で表示するため追加 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>終わったタスクを記録</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <a href="index.html" class="home-link">◀ 戻る</a>
-        <h1>完了報告</h1>
+        <!-- 【変更】見出し・ボタン・メッセージの文言を、AIっぽくない短い表現に変更 -->
+        <h1>終わったタスクを記録</h1>
     </header>
     <div class="container">
         <div id="input-section">
             <h2>何を終わらせましたか？</h2>
             <textarea id="report-input" placeholder="例: A社の提案書作成、3時間かかった！"></textarea>
-            <button id="btn-report" class="danger-btn">AIに報告する</button>
+            <button id="btn-report" class="danger-btn">次へ</button>
         </div>
 
-        <div id="loading" class="hidden">AIがタスクを照合中...</div>
+        <div id="loading" class="hidden">読み込み中...</div>
 
         <div id="confirm-section" class="result-box hidden">
-            <h2>以下のタスクを完了にしますか？</h2>
-            <p><strong>特定されたタスク:</strong> <span id="res-task-name"></span></p>
+            <h2>このタスクを完了にしますか？</h2>
+            <p><strong>タスク:</strong> <span id="res-task-name"></span></p>
             
-            <label>実際にかかった時間 (分) ※修正可能</label>
+            <label>かかった時間 (分)</label>
             <input type="number" id="actual-time">
 
-            <button id="btn-complete" class="primary-btn">完了として記録する</button>
+            <button id="btn-complete" class="primary-btn">完了にする</button>
         </div>
     </div>
 
@@ -36,20 +39,24 @@
         document.getElementById('btn-report').addEventListener('click', async () => {
             const text = document.getElementById('report-input').value;
             if (!text) return alert('入力してください');
-            
+
+            // 【変更】通信中はボタンを押せなくする (連打防止)
+            const btn = document.getElementById('btn-report');
+            btn.disabled = true;
             document.getElementById('loading').classList.remove('hidden');
-            
+
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/parse_completion", {
+                const res = await fetch("/api/parse_completion", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ report_text: text })
                 });
+                // 【変更】エラー応答のときは確認画面に進まない
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
-                
+
                 if (!data.task_id) {
-                    alert("該当する未着手タスクが見つかりませんでした。");
-                    document.getElementById('loading').classList.add('hidden');
+                    alert("当てはまるタスクが見つかりませんでした。");
                     return;
                 }
                 
@@ -60,27 +67,35 @@
                 document.getElementById('input-section').classList.add('hidden');
                 document.getElementById('confirm-section').classList.remove('hidden');
             } catch (e) {
-                alert("エラーが発生しました。");
+                alert("読み取りに失敗しました。時間をおいてもう一度お試しください。");
             } finally {
+                btn.disabled = false;
                 document.getElementById('loading').classList.add('hidden');
             }
         });
 
         document.getElementById('btn-complete').addEventListener('click', async () => {
+            // 【変更】通信中はボタンを押せなくする (連打防止)
+            const btn = document.getElementById('btn-complete');
             const actualMinutes = parseInt(document.getElementById('actual-time').value) || 0;
+            btn.disabled = true;
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/complete_task", {
+                const res = await fetch("/api/complete_task", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ task_id: currentTaskId, actual_minutes: actualMinutes })
                 });
                 if (res.ok) {
-                    alert("完了時間を記録し、ステータスを更新しました！");
+                    alert("記録しました");
                     location.href = 'index.html';
+                    return;
                 }
+                // 【変更】記録できなかったときに何も表示されなかった問題を修正
+                alert(res.status === 404 ? "このタスクは見つかりませんでした。" : "記録に失敗しました。");
             } catch (e) {
-                alert("記録中にエラーが発生しました。");
+                alert("記録に失敗しました。");
             }
+            btn.disabled = false;
         });
     </script>
 </body>

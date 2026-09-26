@@ -31,6 +31,13 @@ header h1 {
     text-align: center;
 }
 
+/* 【変更】戻るリンクがあってもタイトルが中央に来るよう、右側に同じ幅の余白を取る */
+header:has(.home-link)::after {
+    content: "";
+    width: 4em;
+}
+.home-link { width: 4em; white-space: nowrap; }
+
 .home-link {
     text-decoration: none;
     color: var(--secondary-color);
@@ -61,6 +68,8 @@ button {
 }
 
 button:hover { opacity: 0.8; }
+/* 【変更】通信中で押せないボタンを半透明にする */
+button:disabled { opacity: 0.5; cursor: not-allowed; }
 .primary-btn { background-color: var(--box-bg); color: var(--primary-color); border: 2px solid var(--primary-color); }
 .secondary-btn { background-color: var(--primary-color); color: white; }
 .action-btn { background-color: var(--secondary-color); color: white; }
@@ -85,6 +94,7 @@ input[type="number"], input[type="text"] {
     border: 1px solid #ccc;
     border-radius: 4px;
     box-sizing: border-box;
+    font-size: 1rem; /* 【変更】16px未満だとiPhoneで入力時に自動ズームされる */
 }
 
 .hidden { display: none !important; }
@@ -92,6 +102,110 @@ input[type="number"], input[type="text"] {
 .ai-reason { background: #f0f7ff; padding: 15px; border-radius: 8px; font-size: 0.9rem; color: #0056b3; margin-bottom: 20px; }
 #loading { text-align: center; color: var(--secondary-color); font-weight: bold; margin: 20px 0; }
 
+/* 【変更】ここから: ホーム画面 (今日の予定・エラー表示・期限のお知らせ・ボタン配置) */
+#today-plan { margin-bottom: 20px; }
+.plan-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.plan-header h2 { margin: 0; }
+.plan-progress { font-size: 0.85rem; color: #888; }
+.plan-empty { color: #888; margin: 0; }
+.text-link { display: block; text-align: right; color: var(--secondary-color); font-size: 0.9rem; text-decoration: none; }
+
+.notice-error {
+    background: #fdecea;
+    color: #b71c1c;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    margin: 0 0 16px;
+}
+
+#deadline-alerts { margin-bottom: 20px; }
+#deadline-alerts h2 { font-size: 0.95rem; color: #555; margin-bottom: 8px; }
+.deadline-list { list-style: none; padding: 0; margin: 0; }
+.deadline-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 0.9rem; }
+.badge { flex-shrink: 0; font-size: 0.75rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
+.badge-overdue { background: #fdecea; color: #c62828; }
+.badge-today { background: #fff3e0; color: #e65100; }
+
+/* 使う頻度の低い操作は小さく横並びにする */
+.sub-actions { display: flex; gap: 10px; }
+.sub-actions button { margin-bottom: 0; padding: 12px; font-size: 0.9rem; }
+.plan-list { list-style: none; padding: 0; margin: 0; }
+.plan-list li {
+    background: #f9f9f9;
+    margin-bottom: 10px;
+    padding: 12px 15px;
+    border-left: 4px solid var(--secondary-color);
+    border-radius: 4px;
+}
+.plan-list li strong { display: block; }
+.plan-list li span { font-size: 0.8rem; color: #666; }
+.plan-list li.done { border-left-color: #ccc; color: #999; }
+.plan-list li.done strong { text-decoration: line-through; }
+
 table { width: 100%; border-collapse: collapse; margin-top: 15px; }
 th, td { border: 1px solid #eee; padding: 10px; text-align: left; font-size: 0.9rem; }
 th { background-color: #f9f9f9; }
+
+/* 【変更】=== スマホ向け (幅600px以下) === */
+@media (max-width: 600px) {
+    header {
+        padding: 12px 16px;
+        margin-bottom: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+    header h1 { font-size: 1.05rem; }
+
+    .container {
+        margin: 0 12px 24px;
+        padding: 16px;
+        border-radius: 10px;
+    }
+
+    h2 { font-size: 1.05rem; }
+
+    button {
+        padding: 14px;
+        margin-bottom: 12px;
+        -webkit-tap-highlight-color: transparent;
+    }
+    button:active { opacity: 0.7; }
+
+    textarea { height: 120px; }
+
+    /* 一覧表はスマホでは1タスク=1枚のカード表示にする */
+    table, tbody, tr, td { display: block; width: 100%; box-sizing: border-box; }
+    thead { display: none; }
+    tr {
+        margin-bottom: 12px;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    td {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        border: none;
+        border-bottom: 1px solid #f3f3f3;
+        padding: 8px 12px;
+        text-align: right;
+        word-break: break-word;
+    }
+    td:last-child { border-bottom: none; }
+    td::before {
+        content: attr(data-label);
+        color: #888;
+        font-weight: bold;
+        text-align: left;
+        flex-shrink: 0;
+    }
+    td:first-child {
+        font-weight: bold;
+        font-size: 1rem;
+        text-align: left;
+    }
+    td:first-child::before { display: none; }
+}

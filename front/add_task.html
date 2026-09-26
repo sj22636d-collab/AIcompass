@@ -2,25 +2,28 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>タスク入力</title>
+    <!-- 【変更】スマホで正しい幅で表示するため追加 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>タスクを追加</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <a href="index.html" class="home-link">◀ 戻る</a>
-        <h1>タスク入力</h1>
+        <!-- 【変更】見出し・ボタン・メッセージの文言を、AIっぽくない短い表現に変更 -->
+        <h1>タスクを追加</h1>
     </header>
     <div class="container">
         <div id="input-section">
             <h2>どんなタスクですか？</h2>
             <textarea id="task-input" placeholder="例: 来週火曜までに研究の進捗出して資料作る"></textarea>
-            <button id="btn-analyze" class="action-btn">AIに分析させる</button>
+            <button id="btn-analyze" class="action-btn">次へ</button>
         </div>
 
-        <div id="loading" class="hidden">AIが推測中...</div>
+        <div id="loading" class="hidden">読み込み中...</div>
 
         <div id="confirm-section" class="result-box hidden">
-            <h2>AIの推測結果（修正可能です）</h2>
+            <h2>内容を確認</h2>
             <label>タスク名</label>
             <input type="text" id="edit-title">
             
@@ -30,12 +33,12 @@
             <label>見積もり時間 (分)</label>
             <input type="number" id="edit-time">
             
-            <label>性質カテゴリ</label>
+            <label>カテゴリ</label>
             <input type="text" id="edit-category">
 
             <p class="ai-reason" id="res-reason"></p>
 
-            <button id="btn-save" class="primary-btn">この内容で登録する</button>
+            <button id="btn-save" class="primary-btn">登録</button>
         </div>
     </div>
 
@@ -43,37 +46,72 @@
         document.getElementById('btn-analyze').addEventListener('click', async () => {
             const text = document.getElementById('task-input').value;
             if (!text) return alert('入力してください');
-            
+
+            // 【変更】通信中はボタンを押せなくする (連打防止)
+            const btn = document.getElementById('btn-analyze');
+            btn.disabled = true;
             document.getElementById('loading').classList.remove('hidden');
-            
+
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/extract_task", {
+                const res = await fetch("/api/extract_task", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ user_input: text })
                 });
+                // 【変更】エラー応答のときは確認画面に進まない
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
-                
-                // フォームに推測値をセット
-                document.getElementById('edit-title').value = data.title;
-                document.getElementById('edit-deadline').value = data.deadline;
-                document.getElementById('edit-time').value = data.estimatedMinutes;
-                document.getElementById('edit-category').value = data.category;
-                document.getElementById('res-reason').textContent = "AIの理由: " + data.reason;
-                
+
+                // 【変更】フォームに推測値をセット (項目が欠けていても "undefined" と表示しない)
+                document.getElementById('edit-title').value = data.title ?? '';
+                document.getElementById('edit-deadline').value = data.deadline ?? '';
+                document.getElementById('edit-time').value = data.estimatedMinutes ?? '';
+                document.getElementById('edit-category').value = data.category ?? '';
+                document.getElementById('res-reason').textContent = data.reason ? "メモ: " + data.reason : '';
+
                 document.getElementById('input-section').classList.add('hidden');
                 document.getElementById('confirm-section').classList.remove('hidden');
             } catch (e) {
-                alert("エラーが発生しました。");
+                alert("読み取りに失敗しました。時間をおいてもう一度お試しください。");
             } finally {
+                btn.disabled = false;
                 document.getElementById('loading').classList.add('hidden');
             }
         });
 
-        document.getElementById('btn-save').addEventListener('click', () => {
-            // ※本来はここで登録用API(/api/save_taskなど)を叩きます
-            alert("登録しました！");
-            location.href = 'index.html';
+        document.getElementById('btn-save').addEventListener('click', async () => {
+            const btn = document.getElementById('btn-save');
+            const payload = {
+                title: document.getElementById('edit-title').value,
+                deadline: document.getElementById('edit-deadline').value || "",
+                estimated_minutes: parseInt(document.getElementById('edit-time').value) || 0,
+                category: document.getElementById('edit-category').value || ""
+            };
+
+            // 【変更】タスク名が空のまま登録しない
+            if (!payload.title) return alert('タスク名を入力してください');
+
+            // 【変更】連打で同じタスクが二重登録されないよう、通信中は押せなくする
+            btn.disabled = true;
+            try {
+                const res = await fetch("/api/save_task", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    alert("登録しました");
+                    location.href = 'index.html';
+                    return;
+                }
+                // 【変更】エラーの内容をポップアップで表示 (500 などは JSON でないことがある)
+                const errData = await res.json().catch(() => ({}));
+                alert("保存に失敗しました: " + (errData.detail ? JSON.stringify(errData.detail) : `HTTP ${res.status}`));
+            } catch (e) {
+                alert("通信エラーが発生しました: " + e.message);
+            }
+            btn.disabled = false;
         });
     </script>
 </body>
