@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from openai import OpenAI
 from fastapi.middleware.cors import CORSMiddleware
+from prompt_loader import render_prompt
 
 app = FastAPI()
 
@@ -79,15 +80,8 @@ class CompleteTaskRequest(BaseModel):
 @app.post("/api/extract_task")
 def extract_task_api(request: TaskExtractRequest):
     now_str = datetime.now().isoformat()
-    prompt = f"""
-    あなたは優秀なタスク管理アシスタントです。
-    【現在日時】{now_str}
-    ユーザーの入力: {request.user_input}
-    
-    上記からタスク情報を推測しJSONで出力してください。
-    出力形式: {{"title": "タスク名", "deadline": "YYYY-MM-DD", "estimatedMinutes": 数値, "category": "思考系/作業系/コミュニケーション系/インプット系", "reason": "理由"}}
-    """
-    
+    prompt = render_prompt("extract_task", now_str=now_str, user_input=request.user_input)
+
     response = client.chat.completions.create(
         model="gpt-4o",
         response_format={"type": "json_object"},
@@ -140,16 +134,13 @@ def generate_schedule_api(request: ConditionRequest):
         with open("user_profile.txt", "r", encoding="utf-8") as f:
             user_profile = f.read().strip()
 
-    prompt = f"""
-    あなたはユーザーのコンディションに寄り添うタスク管理アシスタントです。
-    【現在日時】{now_str}
-    【ユーザーの特性（過去の傾向）】{user_profile} 
-    【未完了タスク】{tasks_json}
-    【ユーザーの状態】{request.condition_text}
-    
-    上記の「ユーザーの特性」と「ユーザーの状態」の両方を考慮し、今日実行すべきタスクを選定し、順番を組んでJSONで出力してください。
-    出力形式: {{"assessed_condition": {{"available_minutes": 数値, "energy_level": "high/medium/low"}}, "schedule": [{{"task_id": "ID", "title": "タスク名", "reason": "特性や状態を踏まえた理由"}}], "ai_message": "励ましの言葉"}}
-    """
+    prompt = render_prompt(
+        "generate_schedule",
+        now_str=now_str,
+        user_profile=user_profile,
+        tasks_json=tasks_json,
+        condition_text=request.condition_text,
+    )
 
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -171,13 +162,7 @@ def parse_completion_api(request: ParseCompletionRequest):
     uncompleted_tasks = [dict(row) for row in rows]
     tasks_json = json.dumps(uncompleted_tasks, ensure_ascii=False)
 
-    prompt = f"""
-    ユーザーの完了報告テキストと、未着手タスク一覧を照らし合わせ、どのタスクが完了したかを特定してください。
-    【未着手タスク】{tasks_json}
-    【報告テキスト】{request.report_text}
-    
-    出力形式: {{"task_id": "特定したID(不明ならnull)", "task_title": "タスク名", "actual_minutes": かかった時間(分・数値のみ抽出)}}
-    """
+    prompt = render_prompt("parse_completion", tasks_json=tasks_json, report_text=request.report_text)
     
     response = client.chat.completions.create(
         model="gpt-4o",
@@ -216,13 +201,7 @@ def run_weekly_batch_api():
     tasks_data = [dict(row) for row in completed_tasks]
     tasks_json = json.dumps(tasks_data, ensure_ascii=False)
     
-    prompt = f"""
-    以下のデータは、ユーザーが直近で完了したタスクの見積時間と実績時間です。
-    【完了タスクデータ】
-    {tasks_json}
-    
-    このデータから、ユーザーのタスク処理における傾向を分析し、今後のスケジュール作成AIに渡すための「ユーザー特性プロファイル」を3行以内のテキストで作成してください。
-    """
+    prompt = render_prompt("weekly_profile", tasks_json=tasks_json)
     
     response = client.chat.completions.create(
         model="gpt-4o",
