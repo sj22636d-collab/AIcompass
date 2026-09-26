@@ -4,6 +4,9 @@ import json
 import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
+import hashlib
+import secrets
+import hmac
 # 【変更】存在しないタスクに 404 を返すため HTTPException を追加
 # 【変更】ログイン中のユーザーを特定するため Depends, Header を追加
 from fastapi import FastAPI, HTTPException, Depends, Header
