@@ -8,7 +8,8 @@
 //
 // ログイン情報 (token と username) はブラウザの localStorage に保存する。
 
-const API_BASE = "http://127.0.0.1:8000";
+// 画面はバックエンドから配信されるので、API も同じサーバーの相対パスで呼ぶ
+const API_BASE = "";
 const AUTH_KEY = "auth";
 
 function getAuth() {
