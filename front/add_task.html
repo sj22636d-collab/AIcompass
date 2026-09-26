@@ -53,7 +53,7 @@
             document.getElementById('loading').classList.remove('hidden');
 
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/extract_task", {
+                const res = await fetch("/api/extract_task", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ user_input: text })
@@ -94,7 +94,7 @@
             // 【変更】連打で同じタスクが二重登録されないよう、通信中は押せなくする
             btn.disabled = true;
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/save_task", {
+                const res = await fetch("/api/save_task", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(payload)

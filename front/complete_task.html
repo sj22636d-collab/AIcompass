@@ -46,7 +46,7 @@
             document.getElementById('loading').classList.remove('hidden');
 
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/parse_completion", {
+                const res = await fetch("/api/parse_completion", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ report_text: text })
@@ -80,7 +80,7 @@
             const actualMinutes = parseInt(document.getElementById('actual-time').value) || 0;
             btn.disabled = true;
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/complete_task", {
+                const res = await fetch("/api/complete_task", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ task_id: currentTaskId, actual_minutes: actualMinutes })

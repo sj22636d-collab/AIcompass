@@ -35,7 +35,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/get_tasks");
+                const res = await fetch("/api/get_tasks");
                 // 【変更】エラー応答のときは成功扱いにしない
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const tasks = await res.json();
@@ -73,7 +73,7 @@
             const btn = document.getElementById('btn-run-batch');
             btn.disabled = true;
             try {
-                const res = await fetch("http://127.0.0.1:8000/api/run_weekly_batch", { method: "POST" });
+                const res = await fetch("/api/run_weekly_batch", { method: "POST" });
                 // 【変更】エラー応答のときは成功扱いにしない
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
