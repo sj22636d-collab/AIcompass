@@ -135,6 +135,9 @@ textarea:focus, input:focus {
 .ai-reason { background: var(--navy-tint); padding: 15px; border-radius: 12px; font-size: 0.9rem; color: var(--navy); margin-bottom: 20px; }
 #loading { text-align: center; color: var(--navy); font-weight: 700; margin: 20px 0; }
 
+/* 【変更】アカウント作成画面の入力欄の下の注意書き */
+.field-hint { font-size: 0.8rem; color: var(--sub-text); margin: -10px 0 15px; }
+
 /* 【変更】ログイン中のユーザー名とログアウトリンク */
 .user-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--sub-text); margin-bottom: 16px; }
 .user-bar a { color: var(--navy); text-decoration: none; }
