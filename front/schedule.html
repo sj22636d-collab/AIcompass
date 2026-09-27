@@ -11,10 +11,12 @@
 <body>
     <header>
         <a href="index.html" class="home-link">‹ 戻る</a>
-        <!-- 【変更】見出し・ボタン・メッセージの文言を、AIっぽくない短い表現に変更 -->
-        <h1>今日やることを決める</h1>
+        <!-- 【変更】どのページでもロゴを同じ位置に出し、押すとホームに戻れるようにした -->
+        <a href="index.html" class="logo-link" aria-label="ホームに戻る"><img src="logo.svg" alt="AICompass" class="header-logo"></a>
     </header>
     <div class="container">
+        <!-- 【変更】ページ名はヘッダーから、この枠の上部に移した -->
+        <h1 class="page-title">今日やることを決める</h1>
         <div id="input-section">
             <h2>今日の空き時間や調子</h2>
             <textarea id="condition-input" placeholder="例: 午後から2時間だけ。疲れてる。"></textarea>
@@ -86,11 +88,15 @@
                 // すでに今日の予定に入っているタスクは、重ねて出さない
                 const plan = loadTodayPlan();
                 const inPlan = new Set(plan ? plan.schedule.map(t => t.task_id) : []);
-                const recommended = data.schedule.filter(t => !inPlan.has(t.task_id));
+                // 【変更】推定時間を横に出すため、タスク一覧から見積もり時間を引いてくる
+                const minutesById = Object.fromEntries(tasks.map(t => [t.id, t.estimated_minutes]));
+                const recommended = data.schedule
+                    .filter(t => !inPlan.has(t.task_id))
+                    .map(t => ({ ...t, estimated_minutes: minutesById[t.task_id] }));
                 const recommendedIds = new Set(recommended.map(t => t.task_id));
                 const others = tasks
                     .filter(t => t.status === '未着手' && !inPlan.has(t.id) && !recommendedIds.has(t.id))
-                    .map(t => ({ task_id: t.id, title: t.title, reason: '' }));
+                    .map(t => ({ task_id: t.id, title: t.title, reason: '', estimated_minutes: t.estimated_minutes }));
 
                 selected.clear();
                 renderChoices('schedule-list', recommended);
@@ -135,6 +141,13 @@
             updateAddButton();
         }
 
+        // 【変更】推定時間を「約30分」「約1時間30分」の形にする
+        function formatMinutes(min) {
+            const h = Math.floor(min / 60), m = min % 60;
+            if (h === 0) return `約${m}分`;
+            return m === 0 ? `約${h}時間` : `約${h}時間${m}分`;
+        }
+
         function renderChoices(listId, items) {
             const list = document.getElementById(listId);
             list.innerHTML = '';
@@ -147,6 +160,14 @@
                 const title = document.createElement('strong');
                 title.textContent = task.title || task.task_id;
                 li.append(title);
+                // 【変更】タスクの横に推定時間を表示する
+                if (task.estimated_minutes > 0) {
+                    const est = document.createElement('span');
+                    est.className = 'est-time';
+                    est.textContent = formatMinutes(task.estimated_minutes);
+                    li.classList.add('with-time');
+                    li.append(est);
+                }
                 if (task.reason) {
                     const reason = document.createElement('span');
                     reason.textContent = task.reason;
