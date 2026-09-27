@@ -11,10 +11,12 @@
 <body>
     <header>
         <a href="index.html" class="home-link">‹ 戻る</a>
-        <!-- 【変更】見出し・ボタン・メッセージの文言を、AIっぽくない短い表現に変更 -->
-        <h1>終わったタスクを記録</h1>
+        <!-- 【変更】どのページでもロゴを同じ位置に出し、押すとホームに戻れるようにした -->
+        <a href="index.html" class="logo-link" aria-label="ホームに戻る"><img src="logo.svg" alt="AICompass" class="header-logo"></a>
     </header>
     <div class="container">
+        <!-- 【変更】ページ名はヘッダーから、この枠の上部に移した -->
+        <h1 class="page-title">終わったタスクを記録</h1>
         <div id="input-section">
             <h2>何を終わらせましたか？</h2>
             <textarea id="report-input" placeholder="例: A社の提案書作成、3時間かかった！"></textarea>

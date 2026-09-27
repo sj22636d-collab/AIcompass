@@ -10,7 +10,8 @@
 </head>
 <body>
     <header>
-        <h1><img src="logo.svg" alt="AICompass" class="header-logo"></h1>
+        <!-- 【変更】ほかのページと同じく、ロゴを押すとホーム (このページ) を開く -->
+        <a href="index.html" class="logo-link" aria-label="ホーム"><img src="logo.svg" alt="AICompass" class="header-logo"></a>
     </header>
     <div class="container">
         <!-- 【変更】ログイン中のユーザー名とログアウト -->
@@ -127,6 +128,15 @@
         let selectedTaskId = null;
 
         function selectTask(li, task) {
+            // 【変更】選んでいるタスクをもう一度押すと選択を解除し、完了ボタンを押せない状態に戻す
+            if (selectedTaskId === task.id) {
+                li.classList.remove('selected');
+                li.setAttribute('aria-checked', 'false');
+                selectedTaskId = null;
+                document.getElementById('minutes-row').classList.add('hidden');
+                document.getElementById('complete-btn').disabled = true;
+                return;
+            }
             document.querySelectorAll('#today-plan-list li.selectable').forEach(el => {
                 el.classList.remove('selected');
                 el.setAttribute('aria-checked', 'false');

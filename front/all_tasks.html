@@ -11,10 +11,12 @@
 <body>
     <header>
         <a href="index.html" class="home-link">‹ 戻る</a>
-        <!-- 【変更】見出し・ボタン・メッセージの文言を、AIっぽくない短い表現に変更 -->
-        <h1>タスク一覧</h1>
+        <!-- 【変更】どのページでもロゴを同じ位置に出し、押すとホームに戻れるようにした -->
+        <a href="index.html" class="logo-link" aria-label="ホームに戻る"><img src="logo.svg" alt="AICompass" class="header-logo"></a>
     </header>
     <div class="container">
+        <!-- 【変更】ページ名はヘッダーから、この枠の上部に移した -->
+        <h1 class="page-title">タスク一覧</h1>
         <!-- 【変更】配色の統一のため、紫の直接指定をやめて枠線のボタンにした -->
         <!-- 【変更】ボタン名を「完了済みのタスクからパーソナライズ」に変更 -->
         <button id="btn-run-batch" class="primary-btn" style="margin-bottom: 20px;">
@@ -110,6 +112,13 @@
             input.placeholder = '分';
             input.setAttribute('aria-label', `${task.title} にかかった時間 (分)`);
             input.value = task.estimated_minutes > 0 ? task.estimated_minutes : '';
+            // 【変更】数字が何を表すか分かるよう、入力欄の前後に「かかった時間」「分」を出す
+            const label = document.createElement('span');
+            label.className = 'unit';
+            label.textContent = 'かかった時間';
+            const unit = document.createElement('span');
+            unit.className = 'unit';
+            unit.textContent = '分';
             const save = document.createElement('button');
             save.className = 'secondary-btn small-btn';
             save.textContent = '記録';
@@ -137,7 +146,7 @@
                 }
                 save.disabled = false;
             });
-            wrap.append(input, save, cancel);
+            wrap.append(label, input, unit, save, cancel);
             td.append(wrap);
             input.focus();
         }

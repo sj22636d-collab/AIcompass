@@ -44,7 +44,14 @@ header h1 {
 /* 【変更】ホーム・ログイン画面の見出しをロゴ画像にした */
 .header-logo { display: block; height: 36px; width: auto; margin: 0 auto; }
 
-/* 【変更】戻るリンクがあってもタイトルが中央に来るよう、右側に同じ幅の余白を取る */
+/* 【変更】ロゴはどのページでも中央に置き、押すとホームに戻る */
+.logo-link { flex-grow: 1; display: block; min-width: 0; }
+.logo-link .header-logo { max-width: 100%; }
+
+/* 【変更】ページ名は白い枠の上部に出す */
+.page-title { font-size: 1.3rem; font-weight: 700; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+
+/* 【変更】戻るリンクがあってもロゴが中央に来るよう、右側に同じ幅の余白を取る */
 header:has(.home-link)::after {
     content: "";
     width: 4em;
@@ -234,6 +241,18 @@ textarea:focus, input:focus {
 .small-btn { width: auto; margin: 0; padding: 6px 14px; font-size: 0.85rem; }
 .row-complete { display: flex; align-items: center; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
 .row-complete input { width: 72px; margin: 0; padding: 6px 8px; }
+.row-complete .unit { font-size: 0.85rem; }
+
+/* 【変更】タスクの行の右側に出す推定時間 */
+.plan-list li.with-time { padding-right: 96px; }
+.plan-list li .est-time {
+    position: absolute;
+    right: 14px;
+    top: 12px;
+    font-size: 0.8rem;
+    color: var(--sub-text);
+    white-space: nowrap;
+}
 
 table { width: 100%; border-collapse: collapse; margin-top: 15px; }
 th, td { border: 1px solid var(--line); padding: 10px; text-align: left; font-size: 0.9rem; }
@@ -250,6 +269,7 @@ th { background-color: var(--navy-tint); }
     }
     header h1 { font-size: 1.05rem; }
     .header-logo { height: 30px; }
+    .page-title { font-size: 1.15rem; }
 
     .container {
         margin: 0 12px 24px;
