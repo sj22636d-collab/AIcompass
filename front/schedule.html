@@ -161,19 +161,13 @@
                 title.textContent = task.title || task.task_id;
                 li.append(title);
                 // 【変更】タスクの横に推定時間を表示する
-                // 【変更】おすすめには今日の調子で補正した時間を出し、見積もりと違えば元の見積もりも添える
+                // 【変更】おすすめには今日の調子で補正した時間だけを出す (補正がないタスクは見積もり時間)
                 const adjusted = task.adjusted_minutes > 0 ? task.adjusted_minutes : null;
                 const shownMinutes = adjusted ?? task.estimated_minutes;
                 if (shownMinutes > 0) {
                     const est = document.createElement('span');
                     est.className = 'est-time';
                     est.textContent = formatMinutes(shownMinutes);
-                    if (adjusted && task.estimated_minutes > 0 && adjusted !== task.estimated_minutes) {
-                        const base = document.createElement('small');
-                        base.textContent = `見積もり ${task.estimated_minutes}分`;
-                        est.append(base);
-                        est.title = '今日の調子を考えて補正した時間です';
-                    }
                     li.classList.add('with-time');
                     li.append(est);
                 }

@@ -255,10 +255,7 @@ textarea:focus, input:focus {
     font-size: 0.8rem;
     color: var(--sub-text);
     white-space: nowrap;
-    text-align: right;
 }
-/* 【変更】調子で補正したときに添える、元の見積もり時間 */
-.plan-list li .est-time small { display: block; font-size: 0.7rem; }
 
 table { width: 100%; border-collapse: collapse; margin-top: 15px; }
 th, td { border: 1px solid var(--line); padding: 10px; text-align: left; font-size: 0.9rem; }
