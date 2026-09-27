@@ -313,11 +313,19 @@ def generate_schedule_api(request: ConditionRequest, user: dict = Depends(get_cu
 
     titles_by_id = {task["id"]: task["title"] for task in uncompleted_tasks}
     result["schedule"] = [
-        {**item, "title": titles_by_id[item["task_id"]]}
+        {**item, "title": titles_by_id[item["task_id"]], "adjusted_minutes": to_positive_minutes(item.get("adjusted_minutes"))}
         for item in result.get("schedule", [])
         if isinstance(item, dict) and item.get("task_id") in titles_by_id
     ]
     return result
+
+# 【変更】今日の調子で補正した所要時間 (AI の出力) を、1〜1440 分の整数にそろえる。読めない値は None にする
+def to_positive_minutes(value):
+    try:
+        minutes = round(float(value))
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return minutes if 0 < minutes <= 1440 else None
 
 @app.post("/api/parse_completion")
 def parse_completion_api(request: ParseCompletionRequest, user: dict = Depends(get_current_user)):
