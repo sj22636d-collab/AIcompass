@@ -10,7 +10,8 @@
 </head>
 <body>
     <header>
-        <h1><img src="logo.svg" alt="AICompass" class="header-logo"></h1>
+        <!-- 【変更】ほかのページと同じく、ロゴを押すとホーム (このページ) を開く -->
+        <a href="index.html" class="logo-link" aria-label="ホーム"><img src="logo.svg" alt="AICompass" class="header-logo"></a>
     </header>
     <div class="container">
         <!-- 【変更】ログイン中のユーザー名とログアウト -->
@@ -33,8 +34,17 @@
                 <span id="today-plan-progress" class="plan-progress"></span>
             </div>
             <p id="plan-message" class="plan-empty">まだ決めていません</p>
-            <ul id="today-plan-list" class="plan-list"></ul>
-            <a id="replan-link" class="text-link hidden" href="schedule.html">作り直す ›</a>
+            <ul id="today-plan-list" class="plan-list" role="radiogroup" aria-label="完了にするタスク"></ul>
+
+            <!-- 【変更】今日の予定からタスクを選んで、その場で完了にする -->
+            <div id="complete-area" class="hidden">
+                <div id="minutes-row" class="minutes-row hidden">
+                    <label for="actual-time">かかった時間 (分)</label>
+                    <input type="number" id="actual-time" min="1" inputmode="numeric">
+                </div>
+                <button id="complete-btn" class="secondary-btn toggle-btn" disabled>完了</button>
+            </div>
+            <a id="replan-link" class="text-link hidden" href="schedule.html">おすすめからタスクを追加 ›</a>
         </section>
 
         <!-- 状況によって中身が変わる。そのとき一番よく使う操作だけを大きく出す -->
@@ -114,7 +124,35 @@
             document.getElementById('deadline-alerts').classList.remove('hidden');
         }
 
-        function renderPlan(plan, statusById) {
+        // 【変更】今日の予定のタスクを選ぶと「完了」ボタンが押せるようになる
+        let selectedTaskId = null;
+
+        function selectTask(li, task) {
+            // 【変更】選んでいるタスクをもう一度押すと選択を解除し、完了ボタンを押せない状態に戻す
+            if (selectedTaskId === task.id) {
+                li.classList.remove('selected');
+                li.setAttribute('aria-checked', 'false');
+                selectedTaskId = null;
+                document.getElementById('minutes-row').classList.add('hidden');
+                document.getElementById('complete-btn').disabled = true;
+                return;
+            }
+            document.querySelectorAll('#today-plan-list li.selectable').forEach(el => {
+                el.classList.remove('selected');
+                el.setAttribute('aria-checked', 'false');
+            });
+            li.classList.add('selected');
+            li.setAttribute('aria-checked', 'true');
+            selectedTaskId = task.id;
+
+            // 見積もり時間を初期値にしておき、違えば直してもらう
+            const input = document.getElementById('actual-time');
+            input.value = task.estimated_minutes > 0 ? task.estimated_minutes : '';
+            document.getElementById('minutes-row').classList.remove('hidden');
+            document.getElementById('complete-btn').disabled = false;
+        }
+
+        function renderPlan(plan, statusById, taskById) {
             const list = document.getElementById('today-plan-list');
             let doneCount = 0;
             plan.schedule.forEach(task => {
@@ -129,6 +167,19 @@
                 const reason = document.createElement('span');
                 reason.textContent = task.reason || '';
                 li.append(title, reason);
+
+                // 【変更】まだ終わっていないタスクは押して選べるようにする
+                const current = taskById && taskById[task.task_id];
+                if (!done && current) {
+                    li.classList.add('selectable', 'single');
+                    li.tabIndex = 0;
+                    li.setAttribute('role', 'radio');
+                    li.setAttribute('aria-checked', 'false');
+                    li.addEventListener('click', () => selectTask(li, current));
+                    li.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectTask(li, current); }
+                    });
+                }
                 list.append(li);
             });
             if (statusById !== null) {
@@ -149,6 +200,7 @@
             }
 
             const statusById = tasks === null ? null : Object.fromEntries(tasks.map(t => [t.id, t.status]));
+            const taskById = tasks === null ? null : Object.fromEntries(tasks.map(t => [t.id, t]));
             const pendingCount = tasks === null ? null : tasks.filter(t => t.status === '未着手').length;
 
             if (!plan) {
@@ -161,7 +213,7 @@
                 return;
             }
 
-            const allDone = renderPlan(plan, statusById);
+            const allDone = renderPlan(plan, statusById, taskById);
             if (allDone && statusById !== null) {
                 message.textContent = '今日の予定はすべて完了しました';
                 if (pendingCount === 0) {
@@ -170,11 +222,42 @@
                 } else {
                     setMainAction('追加で決める', 'schedule.html');
                 }
-            } else {
-                message.classList.add('hidden');
+            } else if (statusById !== null) {
+                // 【変更】予定の途中は、ここで選んで完了にする (大きいボタンの代わりに「完了」ボタン)
+                message.textContent = '終わったタスクを選んでください';
+                document.getElementById('complete-area').classList.remove('hidden');
                 document.getElementById('replan-link').classList.remove('hidden');
-                setMainAction('終わったタスクを記録', 'complete_task.html');
+                document.getElementById('main-action').classList.add('hidden');
+            } else {
+                // サーバーにつながらないときは完了にできないので、予定だけ表示する
+                message.classList.add('hidden');
+                document.getElementById('main-action').classList.add('hidden');
             }
+        });
+
+        // 【変更】選んだタスクを完了として記録する
+        document.getElementById('complete-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('complete-btn');
+            const minutes = parseInt(document.getElementById('actual-time').value, 10);
+            if (!selectedTaskId) return;
+            if (!(minutes > 0)) return alert('かかった時間を分で入力してください');
+
+            btn.disabled = true;
+            try {
+                const res = await apiFetch("/api/complete_task", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ task_id: selectedTaskId, actual_minutes: minutes })
+                });
+                if (res.ok) {
+                    location.reload();
+                    return;
+                }
+                alert(res.status === 404 ? "このタスクは見つかりませんでした。" : "記録に失敗しました。");
+            } catch (e) {
+                alert("記録に失敗しました。");
+            }
+            btn.disabled = false;
         });
     </script>
 </body>
