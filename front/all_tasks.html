@@ -11,13 +11,16 @@
 <body>
     <header>
         <a href="index.html" class="home-link">‹ 戻る</a>
-        <!-- 【変更】見出し・ボタン・メッセージの文言を、AIっぽくない短い表現に変更 -->
-        <h1>タスク一覧</h1>
+        <!-- 【変更】どのページでもロゴを同じ位置に出し、押すとホームに戻れるようにした -->
+        <a href="index.html" class="logo-link" aria-label="ホームに戻る"><img src="logo.svg" alt="AICompass" class="header-logo"></a>
     </header>
     <div class="container">
+        <!-- 【変更】ページ名はヘッダーから、この枠の上部に移した -->
+        <h1 class="page-title">タスク一覧</h1>
         <!-- 【変更】配色の統一のため、紫の直接指定をやめて枠線のボタンにした -->
+        <!-- 【変更】ボタン名を「完了済みのタスクからパーソナライズ」に変更 -->
         <button id="btn-run-batch" class="primary-btn" style="margin-bottom: 20px;">
-            完了済みのタスクを整理
+            完了済みのタスクからパーソナライズ
         </button>
 
         <table>
@@ -28,6 +31,8 @@
                     <th>時間(分)</th>
                     <th>カテゴリ</th>
                     <th>状態</th>
+                    <!-- 【変更】未着手のタスクをここから完了にできるようにした -->
+                    <th>操作</th>
                 </tr>
             </thead>
             <tbody id="task-table-body"></tbody>
@@ -48,32 +53,107 @@
                 
                 const tbody = document.getElementById('task-table-body');
                 tbody.innerHTML = '';
-                
+
                 tasks.forEach(t => {
                     const isCompleted = t.status === '完了';
-                    const rowStyle = isCompleted ? 'style="color: #888; text-decoration: line-through; background-color: #f0f0f0;"' : '';
-                    const timeDisplay = isCompleted && t.actual_minutes 
-                        ? `${t.estimated_minutes} (実績: ${t.actual_minutes})` 
+                    const timeDisplay = isCompleted && t.actual_minutes
+                        ? `${t.estimated_minutes} (実績: ${t.actual_minutes})`
                         : `${t.estimated_minutes}`;
 
-                    // 【変更】スマホのカード表示で項目名を出すため、各セルに data-label を追加
-                    tbody.innerHTML += `
-                        <tr ${rowStyle}>
-                            <td data-label="タスク名">${t.title}</td>
-                            <td data-label="期限">${t.deadline || '-'}</td>
-                            <td data-label="時間(分)">${timeDisplay}</td>
-                            <td data-label="カテゴリ">${t.category}</td>
-                            <td data-label="状態">${t.status}</td>
-                        </tr>
-                    `;
+                    // 【変更】タスク名などを HTML として解釈しないよう、要素を組み立てて表示する
+                    // 【変更】スマホのカード表示で項目名を出すため、各セルに data-label を付ける
+                    const tr = document.createElement('tr');
+                    if (isCompleted) tr.style.cssText = 'color: #8A8FA3; text-decoration: line-through; background-color: #F2F4F9;';
+                    [
+                        ['タスク名', t.title],
+                        ['期限', t.deadline || '-'],
+                        ['時間(分)', timeDisplay],
+                        ['カテゴリ', t.category || '-'],
+                        ['状態', t.status],
+                    ].forEach(([label, value]) => {
+                        const td = document.createElement('td');
+                        td.dataset.label = label;
+                        td.textContent = value ?? '';
+                        tr.append(td);
+                    });
+                    const actionTd = document.createElement('td');
+                    actionTd.dataset.label = '操作';
+                    if (isCompleted) {
+                        actionTd.textContent = '-';
+                    } else {
+                        renderCompleteButton(actionTd, t);
+                    }
+                    tr.append(actionTd);
+                    tbody.append(tr);
                 });
             } catch (e) {
                 alert("タスクの取得に失敗しました。");
             }
         });
 
+        // 【変更】未着手のタスクを一覧から完了にする: 「完了にする」→ かかった時間を入れて「記録」
+        function renderCompleteButton(td, task) {
+            td.innerHTML = '';
+            const btn = document.createElement('button');
+            btn.className = 'primary-btn small-btn';
+            btn.textContent = '完了にする';
+            btn.addEventListener('click', () => renderCompleteForm(td, task));
+            td.append(btn);
+        }
+
+        function renderCompleteForm(td, task) {
+            td.innerHTML = '';
+            const wrap = document.createElement('div');
+            wrap.className = 'row-complete';
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '1';
+            input.inputMode = 'numeric';
+            input.placeholder = '分';
+            input.setAttribute('aria-label', `${task.title} にかかった時間 (分)`);
+            input.value = task.estimated_minutes > 0 ? task.estimated_minutes : '';
+            // 【変更】数字が何を表すか分かるよう、入力欄の前後に「かかった時間」「分」を出す
+            const label = document.createElement('span');
+            label.className = 'unit';
+            label.textContent = 'かかった時間';
+            const unit = document.createElement('span');
+            unit.className = 'unit';
+            unit.textContent = '分';
+            const save = document.createElement('button');
+            save.className = 'secondary-btn small-btn';
+            save.textContent = '記録';
+            const cancel = document.createElement('button');
+            cancel.className = 'primary-btn small-btn';
+            cancel.textContent = 'やめる';
+            cancel.addEventListener('click', () => renderCompleteButton(td, task));
+            save.addEventListener('click', async () => {
+                const minutes = parseInt(input.value, 10);
+                if (!(minutes > 0)) return alert('かかった時間を分で入力してください');
+                save.disabled = true;
+                try {
+                    const res = await apiFetch("/api/complete_task", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ task_id: task.id, actual_minutes: minutes })
+                    });
+                    if (res.ok) {
+                        location.reload();
+                        return;
+                    }
+                    alert(res.status === 404 ? "このタスクは見つかりませんでした。" : "記録に失敗しました。");
+                } catch (e) {
+                    alert("記録に失敗しました。");
+                }
+                save.disabled = false;
+            });
+            wrap.append(label, input, unit, save, cancel);
+            td.append(wrap);
+            input.focus();
+        }
+
         document.getElementById('btn-run-batch').addEventListener('click', async () => {
-            if (!confirm("完了済みのタスクを一覧から削除します。かかった時間の記録は、今後のプラン作りに使われます。よろしいですか？")) return;
+            // 【変更】ボタン名の変更に合わせて文言を変更
+            if (!confirm("完了済みのタスクから、あなたのタスクの進め方の傾向を分析します。分析したタスクは一覧から削除されます。よろしいですか？")) return;
 
             // 【変更】通信中はボタンを押せなくする (連打防止)
             const btn = document.getElementById('btn-run-batch');
@@ -85,13 +165,13 @@
                 const data = await res.json();
 
                 if (data.status === "success") {
-                    alert("整理しました。\n\nあなたの傾向:\n" + data.profile);
+                    alert("パーソナライズしました。今後のおすすめに使われます。\n\nあなたの傾向:\n" + data.profile);
                     location.reload();
                     return;
                 }
                 alert(data.message);
             } catch (e) {
-                alert("整理に失敗しました。");
+                alert("パーソナライズに失敗しました。");
             }
             btn.disabled = false;
         });
