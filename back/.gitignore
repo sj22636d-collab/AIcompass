@@ -1,4 +1,7 @@
 # txt ファイルは要らない
 api_key.txt
+user_profile.txt
+# データベースのファイルは要らない
 *.db
 *.sqlite3
+.env

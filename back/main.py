@@ -23,23 +23,39 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # 以下のリストに、公開するRenderのURL（またはカスタムドメイン）を指定します
+    allow_origins=[
+        "https://aicompass-nrkh.onrender.com", 
+        "http://localhost:8000", # ローカルでの動作確認用も残しておくと便利です
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ==========================================
-# 【変更】データベース接続設定 (Neon / PostgreSQL)
-# ==========================================
-# ↓ 先ほどNeonでコピーした Connection string に書き換えてください！ ↓
-# 1. データベースURLの読み込みを変更
-# Render上では "DATABASE_URL" を使い、見つからない場合のみ直接書いたURLを使う
-NEON_DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_bqKI0TRa2kFd@ep-billowing-wildflower-b3x8mxx3-pooler.c-4.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require")
+# --- Renderの環境変数を直接読み込み ---
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# --- バリデーション（未設定時はRenderのログにエラーを出して即座に安全停止） ---
+if not GROQ_API_KEY:
+    raise RuntimeError(
+        "[Render Config Error] 'GROQ_API_KEY' が設定されていません。"
+        "Renderダッシュボードの 'Environment' タブで設定してください。"
+    )
+
+if not DATABASE_URL:
+    raise RuntimeError(
+        "[Render Config Error] 'DATABASE_URL' が設定されていません。"
+        "Renderダッシュボードの 'Environment' タブでNeonの接続URLを設定してください。"
+    )
+
+print("環境変数の読み込みが完了しました。サービスを開始します。")
+
 
 def get_db_connection():
     # 結果を辞書型(dict)で受け取れるように RealDictCursor を使用
-    conn = psycopg2.connect(NEON_DATABASE_URL, cursor_factory=RealDictCursor)
+    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return conn
 
 def init_db():
@@ -115,22 +131,9 @@ def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
         raise HTTPException(status_code=401, detail="ログインの有効期限が切れています")
     return {"id": row["id"], "username": row["username"], "profile": row["profile"] or ""}
 
-# 2. APIキーの読み込み関数を変更
-def load_api_key(filepath="back/api_key.txt"):
-    # Render上では環境変数から読み込む
-    if "GROQ_API_KEY" in os.environ:
-        return os.environ["GROQ_API_KEY"]
-        
-    # ローカル環境ではファイルから読み込む
-    try:
-        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-            key = f.read().strip()
-            return re.sub(r'[^a-zA-Z0-9\-_]', '', key)
-    except FileNotFoundError:
-        return ""
 
 client = OpenAI(
-    api_key=load_api_key(),
+    api_key=GROQ_API_KEY,
     base_url="https://api.groq.com/openai/v1"
 )
 GROQ_MODEL = "openai/gpt-oss-20b"
@@ -244,7 +247,7 @@ def logout_api(authorization: Optional[str] = Header(None)):
 # 各種タスクAPI
 # ==========================================
 @app.post("/api/extract_task")
-def extract_task_api(request: TaskExtractRequest):
+def extract_task_api(request: TaskExtractRequest, user: dict = Depends(get_current_user)):
     now = now_jst()
     prompt = render_prompt(
         "extract_task",
