@@ -17,6 +17,7 @@
         <form id="auth-form" novalidate>
             <label for="username">ユーザー名</label>
             <input type="text" id="username" autocomplete="username" required>
+            <!-- 【変更】アカウント作成のときだけ、文字数の条件を出す -->
 
             <label for="password">パスワード</label>
             <input type="password" id="password" autocomplete="current-password" required>
@@ -54,7 +55,12 @@
             document.getElementById('btn-submit').textContent = isRegister ? '作成してはじめる' : 'ログイン';
             document.getElementById('toggle-mode').textContent = isRegister ? 'ログインに戻る ›' : 'アカウントを作成する ›';
             document.getElementById('confirm-field').classList.toggle('hidden', !isRegister);
+            document.querySelectorAll('.field-hint').forEach(el => el.classList.toggle('hidden', !isRegister));
             document.getElementById('password').autocomplete = isRegister ? 'new-password' : 'current-password';
+            // 【変更】アカウント作成のときは、入力欄に使える文字と文字数を表示する (サーバー側のチェックと同じ条件)
+            document.getElementById('username').placeholder = isRegister ? '3~20字の半角英数字' : '';
+            document.getElementById('password').placeholder = isRegister ? '8文字以上' : '';
+            document.getElementById('password-confirm').placeholder = isRegister ? 'もう一度入力' : '';
             showError('');
         });
 
